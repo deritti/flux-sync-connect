@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,106 +8,103 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Server, Database, Webhook, Shield, Eye, EyeOff, TestTube, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Server, Database, Webhook, Shield, Eye, EyeOff, TestTube, CheckCircle, XCircle, Clock, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabaseApiService, ApiConfiguration } from '@/services/supabaseApiService';
 
 const ConfigurationPanel = () => {
   const [showPasswords, setShowPasswords] = useState(false);
   const [isTestingConnection, setIsTestingConnection] = useState({ glpi: false, perfex: false });
-  const [connectionStatus, setConnectionStatus] = useState({ glpi: null, perfex: null });
+  const [connectionStatus, setConnectionStatus] = useState<{ [key: string]: any }>({ glpi: null, perfex: null });
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const [glpiConfig, setGlpiConfig] = useState({
-    url: 'https://gestaodeti.zuve.com.br/apirest.php',
-    appToken: 'mgEtK9pOwoYRqmMHbmMzjz0FcAMOJo9VwtMyDy6P',
-    userToken: '0GCLWm05oh1u86qWgFXZmYOWnvqBdTQmm4FkRHwD',
+  const [glpiConfig, setGlpiConfig] = useState<ApiConfiguration>({
+    service_name: 'glpi',
+    base_url: '',
+    app_token: '',
+    user_token: '',
     enabled: true
   });
 
-  const [perfexConfig, setPerfexConfig] = useState({
-    url: 'https://central.zuve.com.br/api',
-    authToken: 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoibWFyY28iLCJuYW1lIjoibWFyY28iLCJBUElfVElNRSI6MTc1MDMzMjYzNH0.nsayzEA0J5oP0bN7HVabrvjGmjuVTo1xlhS8DsO9V_g',
+  const [perfexConfig, setPerfexConfig] = useState<ApiConfiguration>({
+    service_name: 'perfex',
+    base_url: '',
+    auth_token: '',
     enabled: true
   });
 
-  const handleTestConnection = async (system) => {
+  useEffect(() => {
+    loadConfigurations();
+  }, []);
+
+  const loadConfigurations = async () => {
+    try {
+      setLoading(true);
+      
+      // Inicializar configurações padrão se não existirem
+      await supabaseApiService.initializeDefaultConfigurations();
+      
+      const [perfexData, glpiData] = await Promise.all([
+        supabaseApiService.getApiConfiguration('perfex'),
+        supabaseApiService.getApiConfiguration('glpi')
+      ]);
+
+      if (perfexData) {
+        setPerfexConfig(perfexData);
+      }
+
+      if (glpiData) {
+        setGlpiConfig(glpiData);
+      }
+
+    } catch (error) {
+      console.error('Erro ao carregar configurações:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao carregar configurações do banco de dados",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTestConnection = async (system: 'glpi' | 'perfex') => {
     setIsTestingConnection(prev => ({ ...prev, [system]: true }));
     setConnectionStatus(prev => ({ ...prev, [system]: null }));
     
-    console.log(`Testando conexão com ${system.toUpperCase()}...`);
-    
     try {
-      const startTime = Date.now();
-      let response;
-      
-      if (system === 'glpi') {
-        console.log(`GLPI Test - URL: ${glpiConfig.url}`);
-        console.log(`GLPI Test - App-Token: ${glpiConfig.appToken}`);
-        console.log(`GLPI Test - User-Token: ${glpiConfig.userToken}`);
-        
-        response = await fetch(`${glpiConfig.url}/initSession`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'App-Token': glpiConfig.appToken,
-            'Authorization': `user_token ${glpiConfig.userToken}`
-          }
-        });
-      } else {
-        console.log(`Perfex Test - URL: ${perfexConfig.url}`);
-        console.log(`Perfex Test - Auth Token: ${perfexConfig.authToken}`);
-        
-        response = await fetch(`${perfexConfig.url}/customers`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'authtoken': perfexConfig.authToken
-          }
-        });
-      }
-      
-      const endTime = Date.now();
-      const responseTime = endTime - startTime;
-      
-      console.log(`${system.toUpperCase()} Response Status: ${response.status}`);
-      console.log(`${system.toUpperCase()} Response Time: ${responseTime}ms`);
-      
-      if (response.ok) {
-        const data = await response.json();
-        console.log(`${system.toUpperCase()} Response Data:`, data);
-        
-        setConnectionStatus(prev => ({ 
-          ...prev, 
-          [system]: { 
-            success: true, 
-            status: response.status, 
-            responseTime, 
-            message: 'Conexão estabelecida com sucesso' 
-          } 
-        }));
-        
-        toast({
-          title: "Conexão testada com sucesso",
-          description: `${system.toUpperCase()}: ${response.status} OK (${responseTime}ms)`,
-        });
-      } else {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-    } catch (error) {
-      console.error(`Erro ao testar ${system}:`, error);
+      const result = await supabaseApiService.testApiConnection(system);
       
       setConnectionStatus(prev => ({ 
         ...prev, 
-        [system]: { 
-          success: false, 
-          message: error.message,
-          status: 'Erro'
-        } 
+        [system]: result
+      }));
+      
+      toast({
+        title: result.success ? "Conexão testada com sucesso" : "Erro na conexão",
+        description: `${system.toUpperCase()}: ${result.message} (${result.responseTime}ms)`,
+        variant: result.success ? "default" : "destructive"
+      });
+
+    } catch (error) {
+      console.error(`Erro ao testar ${system}:`, error);
+      
+      const errorResult = {
+        success: false,
+        message: error instanceof Error ? error.message : 'Erro desconhecido',
+        status: 'Erro'
+      };
+      
+      setConnectionStatus(prev => ({ 
+        ...prev, 
+        [system]: errorResult
       }));
       
       toast({
         title: "Erro na conexão",
-        description: `${system.toUpperCase()}: ${error.message}`,
+        description: `${system.toUpperCase()}: ${errorResult.message}`,
         variant: "destructive"
       });
     } finally {
@@ -115,22 +112,28 @@ const ConfigurationPanel = () => {
     }
   };
 
-  const handleSaveConfig = () => {
-    console.log('Salvando configurações...');
-    console.log('GLPI Config:', glpiConfig);
-    console.log('Perfex Config:', perfexConfig);
-    
-    // TODO: Integrar com Supabase para salvar configurações seguras
-    localStorage.setItem('glpi_config', JSON.stringify(glpiConfig));
-    localStorage.setItem('perfex_config', JSON.stringify(perfexConfig));
-    
-    toast({
-      title: "Configurações salvas",
-      description: "As configurações foram salvas com sucesso.",
-    });
+  const handleSaveConfig = async () => {
+    try {
+      await Promise.all([
+        supabaseApiService.saveApiConfiguration(glpiConfig),
+        supabaseApiService.saveApiConfiguration(perfexConfig)
+      ]);
+      
+      toast({
+        title: "Configurações salvas",
+        description: "As configurações foram salvas com sucesso no Supabase.",
+      });
+    } catch (error) {
+      console.error('Erro ao salvar configurações:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao salvar configurações no banco de dados",
+        variant: "destructive"
+      });
+    }
   };
 
-  const renderConnectionStatus = (system) => {
+  const renderConnectionStatus = (system: string) => {
     const status = connectionStatus[system];
     if (!status) return null;
     
@@ -152,16 +155,25 @@ const ConfigurationPanel = () => {
     );
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-8 w-8 animate-spin" />
+        <span className="ml-2">Carregando configurações...</span>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <Card className="shadow-md">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Server className="text-blue-600" size={20} />
-            Configuração de APIs
+            <Database className="text-blue-600" size={20} />
+            Configuração de APIs - Supabase
           </CardTitle>
           <CardDescription>
-            Configure as credenciais de acesso aos sistemas GLPI e Perfex CRM
+            Configure as credenciais de acesso aos sistemas GLPI e Perfex CRM (armazenadas com segurança)
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -193,8 +205,8 @@ const ConfigurationPanel = () => {
                   <Input
                     id="glpi-url"
                     placeholder="https://gestaodeti.zuve.com.br/apirest.php"
-                    value={glpiConfig.url}
-                    onChange={(e) => setGlpiConfig(prev => ({ ...prev, url: e.target.value }))}
+                    value={glpiConfig.base_url}
+                    onChange={(e) => setGlpiConfig(prev => ({ ...prev, base_url: e.target.value }))}
                   />
                 </div>
                 
@@ -206,8 +218,8 @@ const ConfigurationPanel = () => {
                         id="glpi-app-token"
                         type={showPasswords ? "text" : "password"}
                         placeholder="App Token do GLPI..."
-                        value={glpiConfig.appToken}
-                        onChange={(e) => setGlpiConfig(prev => ({ ...prev, appToken: e.target.value }))}
+                        value={glpiConfig.app_token || ''}
+                        onChange={(e) => setGlpiConfig(prev => ({ ...prev, app_token: e.target.value }))}
                       />
                       <Button
                         type="button"
@@ -228,8 +240,8 @@ const ConfigurationPanel = () => {
                         id="glpi-user-token"
                         type={showPasswords ? "text" : "password"}
                         placeholder="User Token do GLPI..."
-                        value={glpiConfig.userToken}
-                        onChange={(e) => setGlpiConfig(prev => ({ ...prev, userToken: e.target.value }))}
+                        value={glpiConfig.user_token || ''}
+                        onChange={(e) => setGlpiConfig(prev => ({ ...prev, user_token: e.target.value }))}
                       />
                     </div>
                   </div>
@@ -273,9 +285,9 @@ const ConfigurationPanel = () => {
                   <Label htmlFor="perfex-url">URL da API</Label>
                   <Input
                     id="perfex-url"
-                    placeholder="https://central.zuve.com.br/api"
-                    value={perfexConfig.url}
-                    onChange={(e) => setPerfexConfig(prev => ({ ...prev, url: e.target.value }))}
+                    placeholder="https://central.zuve.com.br/api/customers"
+                    value={perfexConfig.base_url}
+                    onChange={(e) => setPerfexConfig(prev => ({ ...prev, base_url: e.target.value }))}
                   />
                 </div>
                 
@@ -286,8 +298,8 @@ const ConfigurationPanel = () => {
                       id="perfex-token"
                       type={showPasswords ? "text" : "password"}
                       placeholder="Auth Token do Perfex..."
-                      value={perfexConfig.authToken}
-                      onChange={(e) => setPerfexConfig(prev => ({ ...prev, authToken: e.target.value }))}
+                      value={perfexConfig.auth_token || ''}
+                      onChange={(e) => setPerfexConfig(prev => ({ ...prev, auth_token: e.target.value }))}
                     />
                     <Button
                       type="button"
@@ -322,7 +334,7 @@ const ConfigurationPanel = () => {
           <div className="flex justify-end pt-6 border-t">
             <Button onClick={handleSaveConfig} className="flex items-center gap-2">
               <Shield size={16} />
-              Salvar Configurações
+              Salvar no Supabase
             </Button>
           </div>
         </CardContent>

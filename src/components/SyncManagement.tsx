@@ -7,7 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Building2, Users, Ticket, Play, Pause, RotateCcw, Calendar, ArrowLeftRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { apiService } from '@/services/apiService';
+import { supabaseApiService } from '@/services/supabaseApiService';
 
 const SyncManagement = () => {
   const [syncStatus, setSyncStatus] = useState({
@@ -58,13 +58,13 @@ const SyncManagement = () => {
       let syncPromise;
       switch (type) {
         case 'companies':
-          syncPromise = apiService.syncCustomersToPLPI();
+          syncPromise = supabaseApiService.syncCustomersFromPerfex();
           break;
         case 'users':
-          syncPromise = apiService.syncContactsToGLPI();
+          syncPromise = Promise.resolve(); // TODO: implementar sincronização de contatos
           break;
         case 'tickets':
-          syncPromise = apiService.syncTicketsToGLPI();
+          syncPromise = Promise.resolve(); // TODO: implementar sincronização de tickets
           break;
         default:
           throw new Error(`Tipo de sincronização desconhecido: ${type}`);
@@ -106,7 +106,7 @@ const SyncManagement = () => {
 
       toast({
         title: "Erro na sincronização",
-        description: error.message || `Falha na sincronização de ${type}`,
+        description: error instanceof Error ? error.message : `Falha na sincronização de ${type}`,
         variant: "destructive"
       });
     }

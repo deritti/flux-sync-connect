@@ -5,25 +5,36 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertTriangle, CheckCircle, XCircle, Clock, Search, Download, RefreshCw, Filter } from 'lucide-react';
-import { apiService, SyncLog } from '@/services/apiService';
+import { AlertTriangle, CheckCircle, XCircle, Clock, Search, Download, RefreshCw, Filter, Database } from 'lucide-react';
+import { supabaseApiService, SyncLog } from '@/services/supabase ApiService';
 
 const LogsViewer = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLevel, setSelectedLevel] = useState('all');
   const [logs, setLogs] = useState<SyncLog[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Carregar logs iniciais
-    setLogs(apiService.getLogs());
+    loadLogs();
     
-    // Atualizar logs a cada 2 segundos para mostrar em tempo real
+    // Atualizar logs a cada 5 segundos para mostrar em tempo real
     const interval = setInterval(() => {
-      setLogs(apiService.getLogs());
-    }, 2000);
+      loadLogs();
+    }, 5000);
     
     return () => clearInterval(interval);
   }, []);
+
+  const loadLogs = async () => {
+    try {
+      const logsData = await supabaseApiService.getSyncLogs();
+      setLogs(logsData);
+    } catch (error) {
+      console.error('Erro ao carregar logs:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getLevelIcon = (level: string) => {
     switch (level) {
@@ -63,16 +74,20 @@ const LogsViewer = () => {
     success: logs.filter(l => l.status === 'success').length,
     error: logs.filter(l => l.status === 'error').length,
     warning: logs.filter(l => l.status === 'warning').length,
-    info: logs.filter(l => l.status === 'success').length // Ajustar se houver status 'info'
+    info: logs.filter(l => l.status === 'success').length
   };
 
   const handleRefresh = () => {
-    setLogs(apiService.getLogs());
+    loadLogs();
   };
 
-  const handleClearLogs = () => {
-    apiService.clearLogs();
-    setLogs([]);
+  const handleClearLogs = async () => {
+    try {
+      await supabaseApiService.clearSyncLogs();
+      setLogs([]);
+    } catch (error) {
+      console.error('Erro ao limpar logs:', error);
+    }
   };
 
   const handleExportLogs = () => {
@@ -85,6 +100,10 @@ const LogsViewer = () => {
     linkElement.setAttribute('href', dataUri);
     linkElement.setAttribute('download', exportFileDefaultName);
     linkElement.click();
+  };
+
+  const formatTimestamp = (timestamp: string) => {
+    return new Date(timestamp).toLocaleString('pt-BR');
   };
 
   return (
@@ -128,11 +147,11 @@ const LogsViewer = () => {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <AlertTriangle className="text-orange-600" size={20} />
-                Logs do Sistema - Tempo Real
+                <Database className="text-orange-600" size={20} />
+                Logs do Sistema - Supabase
               </CardTitle>
               <CardDescription>
-                Monitore todas as atividades de sincronização e eventos do sistema
+                Monitore todas as atividades de sincronização armazenadas no banco de dados
               </CardDescription>
             </div>
             <div className="flex gap-2">
@@ -180,7 +199,12 @@ const LogsViewer = () => {
 
           {/* Real-time Logs List */}
           <div className="space-y-2 max-h-96 overflow-y-auto">
-            {filteredLogs.length > 0 ? (
+            {loading ? (
+              <div className="text-center py-8">
+                <Clock className="h-8 w-8 animate-spin mx-auto mb-2" />
+                <p>Carregando logs...</p>
+              </div>
+            ) : filteredLogs.length > 0 ? (
               filteredLogs.map((log) => (
                 <div key={log.id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
                   <div className="flex items-start justify-between">
@@ -192,22 +216,24 @@ const LogsViewer = () => {
                             {log.status.toUpperCase()}
                           </Badge>
                           <Badge variant="outline" className="text-xs">
-                            {log.type}
+                            {log.sync_type}
                           </Badge>
                           <Badge variant="outline" className="text-xs">
                             {log.operation}
                           </Badge>
-                          <span className="text-xs text-gray-500">{log.timestamp}</span>
+                          <span className="text-xs text-gray-500">
+                            {log.created_at ? formatTimestamp(log.created_at) : 'N/A'}
+                          </span>
                         </div>
                         <p className="text-sm font-medium text-gray-900 mb-1">{log.message}</p>
                         {log.details && (
                           <p className="text-xs text-gray-600">{log.details}</p>
                         )}
-                        {(log.sourceId || log.targetId) && (
+                        {(log.source_id || log.target_id) && (
                           <div className="text-xs text-gray-500 mt-1">
-                            {log.sourceId && `ID Origem: ${log.sourceId}`}
-                            {log.sourceId && log.targetId && ' | '}
-                            {log.targetId && `ID Destino: ${log.targetId}`}
+                            {log.source_id && `ID Origem: ${log.source_id}`}
+                            {log.source_id && log.target_id && ' | '}
+                            {log.target_id && `ID Destino: ${log.target_id}`}
                           </div>
                         )}
                       </div>
