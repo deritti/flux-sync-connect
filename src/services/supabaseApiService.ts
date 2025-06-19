@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface ApiConfiguration {
@@ -29,7 +28,17 @@ export interface SyncLog {
 }
 
 class SupabaseApiService {
+  private isSupabaseAvailable(): boolean {
+    return !!(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
+  }
+
   async saveApiConfiguration(config: ApiConfiguration): Promise<void> {
+    if (!this.isSupabaseAvailable()) {
+      console.warn('Supabase não configurado - salvando configuração localmente');
+      localStorage.setItem(`api_config_${config.service_name}`, JSON.stringify(config));
+      return;
+    }
+
     const { error } = await supabase
       .from('api_configurations')
       .upsert({
@@ -46,13 +55,19 @@ class SupabaseApiService {
   }
 
   async getApiConfiguration(serviceName: 'perfex' | 'glpi'): Promise<ApiConfiguration | null> {
+    if (!this.isSupabaseAvailable()) {
+      console.warn('Supabase não configurado - buscando configuração local');
+      const stored = localStorage.getItem(`api_config_${serviceName}`);
+      return stored ? JSON.parse(stored) : null;
+    }
+
     const { data, error } = await supabase
       .from('api_configurations')
       .select('*')
       .eq('service_name', serviceName)
       .single();
 
-    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
+    if (error && error.code !== 'PGRST116') {
       console.error('Erro ao buscar configuração:', error);
       throw new Error(`Erro ao buscar configuração: ${error.message}`);
     }
@@ -61,6 +76,16 @@ class SupabaseApiService {
   }
 
   async getAllApiConfigurations(): Promise<ApiConfiguration[]> {
+    if (!this.isSupabaseAvailable()) {
+      console.warn('Supabase não configurado - buscando configurações locais');
+      const perfex = localStorage.getItem('api_config_perfex');
+      const glpi = localStorage.getItem('api_config_glpi');
+      const configs = [];
+      if (perfex) configs.push(JSON.parse(perfex));
+      if (glpi) configs.push(JSON.parse(glpi));
+      return configs;
+    }
+
     const { data, error } = await supabase
       .from('api_configurations')
       .select('*')
@@ -125,15 +150,17 @@ class SupabaseApiService {
         message: response.ok ? 'Conexão estabelecida com sucesso' : `HTTP ${response.status}: ${response.statusText}`
       };
 
-      // Salvar resultado do teste na configuração
-      await supabase
-        .from('api_configurations')
-        .update({
-          last_test_at: new Date().toISOString(),
-          last_test_status: result.success ? 'success' : 'error',
-          last_test_message: result.message
-        })
-        .eq('service_name', serviceName);
+      // Salvar resultado do teste na configuração apenas se Supabase estiver disponível
+      if (this.isSupabaseAvailable()) {
+        await supabase
+          .from('api_configurations')
+          .update({
+            last_test_at: new Date().toISOString(),
+            last_test_status: result.success ? 'success' : 'error',
+            last_test_message: result.message
+          })
+          .eq('service_name', serviceName);
+      }
 
       return result;
 
@@ -150,21 +177,30 @@ class SupabaseApiService {
         message: error instanceof Error ? error.message : 'Erro desconhecido'
       };
 
-      // Salvar resultado do erro
-      await supabase
-        .from('api_configurations')
-        .update({
-          last_test_at: new Date().toISOString(),
-          last_test_status: 'error',
-          last_test_message: result.message
-        })
-        .eq('service_name', serviceName);
+      // Salvar resultado do erro apenas se Supabase estiver disponível
+      if (this.isSupabaseAvailable()) {
+        await supabase
+          .from('api_configurations')
+          .update({
+            last_test_at: new Date().toISOString(),
+            last_test_status: 'error',
+            last_test_message: result.message
+          })
+          .eq('service_name', serviceName);
+      }
 
       return result;
     }
   }
 
   async addSyncLog(log: SyncLog): Promise<void> {
+    if (!this.isSupabaseAvailable()) {
+      console.warn('Supabase não configurado - log apenas no console');
+      const timestamp = new Date().toLocaleString('pt-BR');
+      console.log(`[${timestamp}] ${log.sync_type.toUpperCase()}: ${log.message}`);
+      return;
+    }
+
     const { error } = await supabase
       .from('sync_logs')
       .insert({
@@ -182,6 +218,11 @@ class SupabaseApiService {
   }
 
   async getSyncLogs(limit: number = 100): Promise<SyncLog[]> {
+    if (!this.isSupabaseAvailable()) {
+      console.warn('Supabase não configurado - retornando logs vazios');
+      return [];
+    }
+
     const { data, error } = await supabase
       .from('sync_logs')
       .select('*')
@@ -197,10 +238,15 @@ class SupabaseApiService {
   }
 
   async clearSyncLogs(): Promise<void> {
+    if (!this.isSupabaseAvailable()) {
+      console.warn('Supabase não configurado - não há logs para limpar');
+      return;
+    }
+
     const { error } = await supabase
       .from('sync_logs')
       .delete()
-      .neq('id', ''); // Deleta todos os registros
+      .neq('id', '');
 
     if (error) {
       console.error('Erro ao limpar logs:', error);
@@ -226,7 +272,6 @@ class SupabaseApiService {
     try {
       console.log('Buscando clientes do Perfex...');
       
-      // Buscar clientes do Perfex
       const perfexResponse = await fetch(perfexConfig.base_url, {
         headers: {
           'authtoken': perfexConfig.auth_token || '',
@@ -246,7 +291,6 @@ class SupabaseApiService {
       let successCount = 0;
       let errorCount = 0;
 
-      // Processar cada cliente
       for (const customer of customers) {
         try {
           const glpiEntity = {
@@ -258,7 +302,6 @@ class SupabaseApiService {
 
           console.log('Criando entidade no GLPI:', glpiEntity);
 
-          // Criar entidade no GLPI
           const glpiResponse = await fetch(`${glpiConfig.base_url}/Entity`, {
             method: 'POST',
             headers: {
@@ -318,7 +361,6 @@ class SupabaseApiService {
     }
   }
 
-  // Método para inicializar configurações padrão
   async initializeDefaultConfigurations(): Promise<void> {
     const perfexExists = await this.getApiConfiguration('perfex');
     const glpiExists = await this.getApiConfiguration('glpi');
