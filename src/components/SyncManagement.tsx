@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -7,6 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Building2, Users, Ticket, Play, Pause, RotateCcw, Calendar, ArrowLeftRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { apiService } from '@/services/apiService';
 
 const SyncManagement = () => {
   const [syncStatus, setSyncStatus] = useState({
@@ -29,33 +30,86 @@ const SyncManagement = () => {
     });
   };
 
-  const handleManualSync = (type: string) => {
+  const handleManualSync = async (type: string) => {
     setSyncStatus(prev => ({
       ...prev,
       [type]: { ...prev[type as keyof typeof prev], running: true, progress: 0 }
     }));
 
-    // Simulate sync progress
-    const interval = setInterval(() => {
-      setSyncStatus(prev => {
-        const currentProgress = prev[type as keyof typeof prev].progress;
-        if (currentProgress >= 100) {
-          clearInterval(interval);
-          toast({
-            title: "Sincronização concluída",
-            description: `Sincronização de ${type} foi concluída com sucesso.`,
-          });
+    try {
+      console.log(`Iniciando sincronização manual de ${type}...`);
+      
+      // Simular progresso
+      const progressInterval = setInterval(() => {
+        setSyncStatus(prev => {
+          const currentProgress = prev[type as keyof typeof prev].progress;
+          if (currentProgress >= 90) {
+            clearInterval(progressInterval);
+            return prev;
+          }
           return {
             ...prev,
-            [type]: { ...prev[type as keyof typeof prev], running: false, progress: 0, lastSync: 'Agora' }
+            [type]: { ...prev[type as keyof typeof prev], progress: currentProgress + 10 }
           };
+        });
+      }, 300);
+
+      // Executar sincronização real baseada no tipo
+      let syncPromise;
+      switch (type) {
+        case 'companies':
+          syncPromise = apiService.syncCustomersToPLPI();
+          break;
+        case 'users':
+          syncPromise = apiService.syncContactsToGLPI();
+          break;
+        case 'tickets':
+          syncPromise = apiService.syncTicketsToGLPI();
+          break;
+        default:
+          throw new Error(`Tipo de sincronização desconhecido: ${type}`);
+      }
+
+      await syncPromise;
+
+      // Finalizar progresso
+      clearInterval(progressInterval);
+      setSyncStatus(prev => ({
+        ...prev,
+        [type]: { 
+          ...prev[type as keyof typeof prev], 
+          running: false, 
+          progress: 100, 
+          lastSync: 'Agora' 
         }
-        return {
+      }));
+
+      setTimeout(() => {
+        setSyncStatus(prev => ({
           ...prev,
-          [type]: { ...prev[type as keyof typeof prev], progress: currentProgress + 10 }
-        };
+          [type]: { ...prev[type as keyof typeof prev], progress: 0 }
+        }));
+      }, 2000);
+
+      toast({
+        title: "Sincronização concluída",
+        description: `Sincronização de ${type} foi concluída com sucesso.`,
       });
-    }, 300);
+
+    } catch (error) {
+      console.error(`Erro na sincronização de ${type}:`, error);
+      
+      setSyncStatus(prev => ({
+        ...prev,
+        [type]: { ...prev[type as keyof typeof prev], running: false, progress: 0 }
+      }));
+
+      toast({
+        title: "Erro na sincronização",
+        description: error.message || `Falha na sincronização de ${type}`,
+        variant: "destructive"
+      });
+    }
   };
 
   const syncConfigs = [
@@ -82,11 +136,11 @@ const SyncManagement = () => {
     {
       id: 'tickets',
       title: 'Tickets/Chamados',
-      description: 'Sincronização de tickets do GLPI com chamados do Perfex CRM',
+      description: 'Sincronização de tickets/tarefas do Perfex CRM com tickets do GLPI',
       icon: Ticket,
       color: 'text-purple-600',
       bgColor: 'bg-purple-100',
-      direction: 'GLPI ⇄ Perfex CRM',
+      direction: 'Perfex CRM → GLPI',
       fields: ['Título', 'Descrição', 'Status', 'Prioridade', 'Categoria', 'Responsável']
     }
   ];
