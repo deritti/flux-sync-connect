@@ -7,6 +7,8 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 console.log('Debug Supabase - URL:', supabaseUrl ? 'Definida' : 'Não definida')
 console.log('Debug Supabase - Key:', supabaseAnonKey ? 'Definida' : 'Não definida')
 
+let supabaseClient: any;
+
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Variáveis de ambiente do Supabase não encontradas:', {
     VITE_SUPABASE_URL: supabaseUrl || 'undefined',
@@ -29,7 +31,9 @@ if (!supabaseUrl || !supabaseAnonKey) {
     })
   }
   
-  export const supabase = mockClient as any
+  supabaseClient = mockClient
 } else {
-  export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+  supabaseClient = createClient(supabaseUrl, supabaseAnonKey)
 }
+
+export const supabase = supabaseClient
