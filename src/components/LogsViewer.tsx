@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertTriangle, CheckCircle, XCircle, Clock, Search, Download, RefreshCw, Filter, Database } from 'lucide-react';
-import { supabaseApiService, SyncLog } from '@/services/supabase ApiService';
+import { supabaseApiService, SyncLog } from '@/services/supabaseApiService';
 
 const LogsViewer = () => {
   const [searchTerm, setSearchTerm] = useState('');
