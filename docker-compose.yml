@@ -1,0 +1,21 @@
+
+version: '3.8'
+
+services:
+  perfex-glpi-integration:
+    build: .
+    container_name: perfex-glpi-integration
+    ports:
+      - "3000:80"
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    networks:
+      - integration-network
+
+networks:
+  integration-network:
+    driver: bridge
+
+volumes:
+  app-data:

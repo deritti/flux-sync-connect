@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 export interface ApiConfiguration {
@@ -115,10 +116,11 @@ class SupabaseApiService {
     
     try {
       if (serviceName === 'perfex') {
-        console.log(`Testando Perfex - URL: ${config.base_url}`);
+        console.log(`Testando Perfex - URL: ${config.base_url}/customers`);
         console.log(`Testando Perfex - Token: ${config.auth_token?.substring(0, 20)}...`);
         
-        response = await fetch(`${config.base_url}`, {
+        // Corrigido para usar o endpoint correto do Perfex API
+        response = await fetch(`${config.base_url}/customers`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -272,7 +274,8 @@ class SupabaseApiService {
     try {
       console.log('Buscando clientes do Perfex...');
       
-      const perfexResponse = await fetch(perfexConfig.base_url, {
+      // Corrigido para usar o endpoint correto do Perfex API
+      const perfexResponse = await fetch(`${perfexConfig.base_url}/customers`, {
         headers: {
           'authtoken': perfexConfig.auth_token || '',
           'Content-Type': 'application/json'
@@ -283,8 +286,7 @@ class SupabaseApiService {
         throw new Error(`Erro ao buscar clientes do Perfex: ${perfexResponse.status}`);
       }
 
-      const customersData = await perfexResponse.json();
-      const customers = customersData.data || customersData || [];
+      const customers = await perfexResponse.json();
       
       console.log('Clientes encontrados:', customers.length);
 
@@ -368,7 +370,7 @@ class SupabaseApiService {
     if (!perfexExists) {
       await this.saveApiConfiguration({
         service_name: 'perfex',
-        base_url: 'https://central.zuve.com.br/api/customers',
+        base_url: 'https://central.zuve.com.br/api',
         auth_token: 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoibWFyY28iLCJuYW1lIjoibWFyY28iLCJBUElfVElNRSI6MTc1MDMzMjYzNH0.nsayzEA0J5oP0bN7HVabrvjGmjuVTo1xlhS8DsO9V_g',
         enabled: true
       });
