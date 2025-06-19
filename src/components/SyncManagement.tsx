@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -202,7 +201,7 @@ const SyncManagement = () => {
           <Tabs defaultValue="automatic" className="space-y-4">
             <TabsList>
               <TabsTrigger value="automatic">Automático</TabsTrigger>
-              <TabsT rigger value="manual">Manual</TabsTrigger>
+              <TabsTrigger value="manual">Manual</TabsTrigger>
             </TabsList>
             
             <TabsContent value="automatic" className="space-y-4">
