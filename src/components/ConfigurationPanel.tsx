@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,6 +10,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Server, Database, Webhook, Shield, Eye, EyeOff, TestTube, CheckCircle, XCircle, Clock, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabaseApiService, ApiConfiguration } from '@/services/supabaseApiService';
+import WebhookConfig from './WebhookConfig';
 
 const ConfigurationPanel = () => {
   const [showPasswords, setShowPasswords] = useState(false);
@@ -166,225 +166,195 @@ const ConfigurationPanel = () => {
 
   return (
     <div className="space-y-6">
-      <Card className="shadow-md">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Database className="text-blue-600" size={20} />
-            Configuração de APIs - Supabase
-          </CardTitle>
-          <CardDescription>
-            Configure as credenciais de acesso aos sistemas GLPI e Perfex CRM (armazenadas com segurança)
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="glpi" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="glpi">GLPI</TabsTrigger>
-              <TabsTrigger value="perfex">Perfex CRM</TabsTrigger>
-            </TabsList>
+      <Tabs defaultValue="apis" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="apis">Configuração de APIs</TabsTrigger>
+          <TabsTrigger value="webhooks">Webhooks</TabsTrigger>
+        </TabsList>
 
-            <TabsContent value="glpi" className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-lg font-semibold">Configuração GLPI</h3>
-                  <Badge variant={glpiConfig.enabled ? "default" : "secondary"}>
-                    {glpiConfig.enabled ? "Ativo" : "Inativo"}
-                  </Badge>
-                </div>
-                <Switch
-                  checked={glpiConfig.enabled}
-                  onCheckedChange={(checked) => 
-                    setGlpiConfig(prev => ({ ...prev, enabled: checked }))
-                  }
-                />
-              </div>
-              
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="glpi-url">URL da API</Label>
-                  <Input
-                    id="glpi-url"
-                    placeholder="https://gestaodeti.zuve.com.br/apirest.php"
-                    value={glpiConfig.base_url}
-                    onChange={(e) => setGlpiConfig(prev => ({ ...prev, base_url: e.target.value }))}
-                  />
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="glpi-app-token">App Token</Label>
-                    <div className="relative">
+        <TabsContent value="apis">
+          <Card className="shadow-md">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Database className="text-blue-600" size={20} />
+                Configuração de APIs - Supabase
+              </CardTitle>
+              <CardDescription>
+                Configure as credenciais de acesso aos sistemas GLPI e Perfex CRM (armazenadas com segurança)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Tabs defaultValue="glpi" className="space-y-6">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="glpi">GLPI</TabsTrigger>
+                  <TabsTrigger value="perfex">Perfex CRM</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="glpi" className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-lg font-semibold">Configuração GLPI</h3>
+                      <Badge variant={glpiConfig.enabled ? "default" : "secondary"}>
+                        {glpiConfig.enabled ? "Ativo" : "Inativo"}
+                      </Badge>
+                    </div>
+                    <Switch
+                      checked={glpiConfig.enabled}
+                      onCheckedChange={(checked) => 
+                        setGlpiConfig(prev => ({ ...prev, enabled: checked }))
+                      }
+                    />
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="glpi-url">URL da API</Label>
                       <Input
-                        id="glpi-app-token"
-                        type={showPasswords ? "text" : "password"}
-                        placeholder="App Token do GLPI..."
-                        value={glpiConfig.app_token || ''}
-                        onChange={(e) => setGlpiConfig(prev => ({ ...prev, app_token: e.target.value }))}
+                        id="glpi-url"
+                        placeholder="https://seu-glpi.com/apirest.php"
+                        value={glpiConfig.base_url}
+                        onChange={(e) => setGlpiConfig(prev => ({ ...prev, base_url: e.target.value }))}
                       />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                        onClick={() => setShowPasswords(!showPasswords)}
-                      >
-                        {showPasswords ? <EyeOff size={16} /> : <Eye size={16} />}
-                      </Button>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="glpi-app-token">App Token</Label>
+                        <div className="relative">
+                          <Input
+                            id="glpi-app-token"
+                            type={showPasswords ? "text" : "password"}
+                            placeholder="App Token do GLPI..."
+                            value={glpiConfig.app_token || ''}
+                            onChange={(e) => setGlpiConfig(prev => ({ ...prev, app_token: e.target.value }))}
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                            onClick={() => setShowPasswords(!showPasswords)}
+                          >
+                            {showPasswords ? <EyeOff size={16} /> : <Eye size={16} />}
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="glpi-user-token">User Token</Label>
+                        <div className="relative">
+                          <Input
+                            id="glpi-user-token"
+                            type={showPasswords ? "text" : "password"}
+                            placeholder="User Token do GLPI..."
+                            value={glpiConfig.user_token || ''}
+                            onChange={(e) => setGlpiConfig(prev => ({ ...prev, user_token: e.target.value }))}
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
                   
-                  <div className="space-y-2">
-                    <Label htmlFor="glpi-user-token">User Token</Label>
-                    <div className="relative">
+                  <Button
+                    onClick={() => handleTestConnection('glpi')}
+                    disabled={isTestingConnection.glpi}
+                    className="flex items-center gap-2"
+                  >
+                    {isTestingConnection.glpi ? (
+                      <Clock size={16} className="animate-spin" />
+                    ) : (
+                      <TestTube size={16} />
+                    )}
+                    {isTestingConnection.glpi ? 'Testando...' : 'Testar Conexão'}
+                  </Button>
+                  
+                  {renderConnectionStatus('glpi')}
+                </TabsContent>
+
+                <TabsContent value="perfex" className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-lg font-semibold">Configuração Perfex CRM</h3>
+                      <Badge variant={perfexConfig.enabled ? "default" : "secondary"}>
+                        {perfexConfig.enabled ? "Ativo" : "Inativo"}
+                      </Badge>
+                    </div>
+                    <Switch
+                      checked={perfexConfig.enabled}
+                      onCheckedChange={(checked) => 
+                        setPerfexConfig(prev => ({ ...prev, enabled: checked }))
+                      }
+                    />
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="perfex-url">URL Base da API</Label>
                       <Input
-                        id="glpi-user-token"
-                        type={showPasswords ? "text" : "password"}
-                        placeholder="User Token do GLPI..."
-                        value={glpiConfig.user_token || ''}
-                        onChange={(e) => setGlpiConfig(prev => ({ ...prev, user_token: e.target.value }))}
+                        id="perfex-url"
+                        placeholder="https://seu-perfex.com"
+                        value={perfexConfig.base_url}
+                        onChange={(e) => setPerfexConfig(prev => ({ ...prev, base_url: e.target.value }))}
                       />
+                      <p className="text-xs text-gray-500">
+                        URL base do Perfex (sem /api no final)
+                      </p>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="perfex-token">Auth Token</Label>
+                      <div className="relative">
+                        <Input
+                          id="perfex-token"
+                          type={showPasswords ? "text" : "password"}
+                          placeholder="Auth Token do Perfex..."
+                          value={perfexConfig.auth_token || ''}
+                          onChange={(e) => setPerfexConfig(prev => ({ ...prev, auth_token: e.target.value }))}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                          onClick={() => setShowPasswords(!showPasswords)}
+                        >
+                          {showPasswords ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
-              
-              <Button
-                onClick={() => handleTestConnection('glpi')}
-                disabled={isTestingConnection.glpi}
-                className="flex items-center gap-2"
-              >
-                {isTestingConnection.glpi ? (
-                  <Clock size={16} className="animate-spin" />
-                ) : (
-                  <TestTube size={16} />
-                )}
-                {isTestingConnection.glpi ? 'Testando...' : 'Testar Conexão'}
-              </Button>
-              
-              {renderConnectionStatus('glpi')}
-            </TabsContent>
+                  
+                  <Button
+                    onClick={() => handleTestConnection('perfex')}
+                    disabled={isTestingConnection.perfex}
+                    className="flex items-center gap-2"
+                  >
+                    {isTestingConnection.perfex ? (
+                      <Clock size={16} className="animate-spin" />
+                    ) : (
+                      <TestTube size={16} />
+                    )}
+                    {isTestingConnection.perfex ? 'Testando...' : 'Testar Conexão'}
+                  </Button>
+                  
+                  {renderConnectionStatus('perfex')}
+                </TabsContent>
+              </Tabs>
 
-            <TabsContent value="perfex" className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-lg font-semibold">Configuração Perfex CRM</h3>
-                  <Badge variant={perfexConfig.enabled ? "default" : "secondary"}>
-                    {perfexConfig.enabled ? "Ativo" : "Inativo"}
-                  </Badge>
-                </div>
-                <Switch
-                  checked={perfexConfig.enabled}
-                  onCheckedChange={(checked) => 
-                    setPerfexConfig(prev => ({ ...prev, enabled: checked }))
-                  }
-                />
+              <div className="flex justify-end pt-6 border-t">
+                <Button onClick={handleSaveConfig} className="flex items-center gap-2">
+                  <Shield size={16} />
+                  Salvar no Supabase
+                </Button>
               </div>
-              
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="perfex-url">URL da API</Label>
-                  <Input
-                    id="perfex-url"
-                    placeholder="https://central.zuve.com.br/api/customers"
-                    value={perfexConfig.base_url}
-                    onChange={(e) => setPerfexConfig(prev => ({ ...prev, base_url: e.target.value }))}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="perfex-token">Auth Token</Label>
-                  <div className="relative">
-                    <Input
-                      id="perfex-token"
-                      type={showPasswords ? "text" : "password"}
-                      placeholder="Auth Token do Perfex..."
-                      value={perfexConfig.auth_token || ''}
-                      onChange={(e) => setPerfexConfig(prev => ({ ...prev, auth_token: e.target.value }))}
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                      onClick={() => setShowPasswords(!showPasswords)}
-                    >
-                      {showPasswords ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-              
-              <Button
-                onClick={() => handleTestConnection('perfex')}
-                disabled={isTestingConnection.perfex}
-                className="flex items-center gap-2"
-              >
-                {isTestingConnection.perfex ? (
-                  <Clock size={16} className="animate-spin" />
-                ) : (
-                  <TestTube size={16} />
-                )}
-                {isTestingConnection.perfex ? 'Testando...' : 'Testar Conexão'}
-              </Button>
-              
-              {renderConnectionStatus('perfex')}
-            </TabsContent>
-          </Tabs>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-          <div className="flex justify-end pt-6 border-t">
-            <Button onClick={handleSaveConfig} className="flex items-center gap-2">
-              <Shield size={16} />
-              Salvar no Supabase
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Webhook Configuration */}
-      <Card className="shadow-md">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Webhook className="text-purple-600" size={20} />
-            Configuração de Webhooks
-          </CardTitle>
-          <CardDescription>
-            Configure os endpoints para receber notificações em tempo real
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <h4 className="font-semibold">GLPI Webhooks</h4>
-              <div className="space-y-2">
-                <Label>URL do Webhook</Label>
-                <Input 
-                  placeholder="https://seu-sistema.com/webhook/glpi"
-                  defaultValue="https://integrador.exemplo.com/webhook/glpi"
-                />
-              </div>
-              <div className="flex items-center space-x-2">
-                <Switch id="glpi-webhook" defaultChecked />
-                <Label htmlFor="glpi-webhook">Ativar webhooks do GLPI</Label>
-              </div>
-            </div>
-            
-            <div className="space-y-4">
-              <h4 className="font-semibold">Perfex CRM Webhooks</h4>
-              <div className="space-y-2">
-                <Label>URL do Webhook</Label>
-                <Input 
-                  placeholder="https://seu-sistema.com/webhook/perfex"
-                  defaultValue="https://integrador.exemplo.com/webhook/perfex"
-                />
-              </div>
-              <div className="flex items-center space-x-2">
-                <Switch id="perfex-webhook" defaultChecked />
-                <Label htmlFor="perfex-webhook">Ativar webhooks do Perfex</Label>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+        <TabsContent value="webhooks">
+          <WebhookConfig />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

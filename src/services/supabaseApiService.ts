@@ -29,6 +29,38 @@ export interface SyncLog {
 }
 
 class SupabaseApiService {
+  async initializeDefaultConfigurations(): Promise<void> {
+    try {
+      const existingConfigs = await this.getAllApiConfigurations();
+      
+      if (existingConfigs.length === 0) {
+        console.log('Inicializando configurações padrão...');
+        
+        const defaultConfigs: ApiConfiguration[] = [
+          {
+            service_name: 'perfex',
+            base_url: '',
+            auth_token: '',
+            enabled: false
+          },
+          {
+            service_name: 'glpi',
+            base_url: '',
+            app_token: '',
+            user_token: '',
+            enabled: false
+          }
+        ];
+
+        for (const config of defaultConfigs) {
+          await this.saveApiConfiguration(config);
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao inicializar configurações padrão:', error);
+    }
+  }
+
   async saveApiConfiguration(config: ApiConfiguration): Promise<void> {
     const { error } = await supabase
       .from('api_configurations')
@@ -57,7 +89,7 @@ class SupabaseApiService {
       throw new Error(`Erro ao buscar configuração: ${error.message}`);
     }
 
-    return data;
+    return data as ApiConfiguration | null;
   }
 
   async getAllApiConfigurations(): Promise<ApiConfiguration[]> {
@@ -71,7 +103,7 @@ class SupabaseApiService {
       throw new Error(`Erro ao buscar configurações: ${error.message}`);
     }
 
-    return data || [];
+    return (data as ApiConfiguration[]) || [];
   }
 
   async testApiConnection(serviceName: 'perfex' | 'glpi'): Promise<{
@@ -90,10 +122,10 @@ class SupabaseApiService {
     
     try {
       if (serviceName === 'perfex') {
-        console.log(`Testando Perfex - URL: ${config.base_url}/customers`);
+        console.log(`Testando Perfex - URL: ${config.base_url}/api/customers`);
         console.log(`Testando Perfex - Token: ${config.auth_token?.substring(0, 20)}...`);
         
-        response = await fetch(`${config.base_url}/customers`, {
+        response = await fetch(`${config.base_url}/api/customers`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -102,6 +134,8 @@ class SupabaseApiService {
         });
       } else {
         console.log(`Testando GLPI - URL: ${config.base_url}/initSession`);
+        console.log(`Testando GLPI - App-Token: ${config.app_token?.substring(0, 20)}...`);
+        console.log(`Testando GLPI - User-Token: ${config.user_token?.substring(0, 20)}...`);
         
         response = await fetch(`${config.base_url}/initSession`, {
           method: 'GET',
@@ -118,6 +152,14 @@ class SupabaseApiService {
 
       console.log(`${serviceName.toUpperCase()} Response Status: ${response.status}`);
       
+      let responseText = '';
+      try {
+        responseText = await response.text();
+        console.log(`${serviceName.toUpperCase()} Response:`, responseText);
+      } catch (e) {
+        console.log('Erro ao ler resposta:', e);
+      }
+
       const result = {
         success: response.ok,
         status: response.status,
@@ -193,7 +235,7 @@ class SupabaseApiService {
       return [];
     }
 
-    return data || [];
+    return (data as SyncLog[]) || [];
   }
 
   async clearSyncLogs(): Promise<void> {
@@ -226,7 +268,7 @@ class SupabaseApiService {
     try {
       console.log('Buscando clientes do Perfex...');
       
-      const perfexResponse = await fetch(`${perfexConfig.base_url}/customers`, {
+      const perfexResponse = await fetch(`${perfexConfig.base_url}/api/customers`, {
         headers: {
           'authtoken': perfexConfig.auth_token || '',
           'Content-Type': 'application/json'
@@ -240,6 +282,23 @@ class SupabaseApiService {
       const customers = await perfexResponse.json();
       
       console.log('Clientes encontrados:', customers.length);
+
+      // Inicializar sessão no GLPI
+      const glpiSessionResponse = await fetch(`${glpiConfig.base_url}/initSession`, {
+        method: 'GET',
+        headers: {
+          'App-Token': glpiConfig.app_token || '',
+          'Authorization': `user_token ${glpiConfig.user_token || ''}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!glpiSessionResponse.ok) {
+        throw new Error(`Erro ao inicializar sessão GLPI: ${glpiSessionResponse.status}`);
+      }
+
+      const sessionData = await glpiSessionResponse.json();
+      const sessionToken = sessionData.session_token;
 
       let successCount = 0;
       let errorCount = 0;
@@ -259,7 +318,7 @@ class SupabaseApiService {
             method: 'POST',
             headers: {
               'App-Token': glpiConfig.app_token || '',
-              'Authorization': `user_token ${glpiConfig.user_token || ''}`,
+              'Session-Token': sessionToken,
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({ input: glpiEntity })
@@ -294,6 +353,16 @@ class SupabaseApiService {
           });
         }
       }
+
+      // Finalizar sessão GLPI
+      await fetch(`${glpiConfig.base_url}/killSession`, {
+        method: 'GET',
+        headers: {
+          'App-Token': glpiConfig.app_token || '',
+          'Session-Token': sessionToken,
+          'Content-Type': 'application/json'
+        }
+      });
 
       await this.addSyncLog({
         sync_type: 'customer',
