@@ -9,7 +9,120 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      api_configurations: {
+        Row: {
+          app_token: string | null
+          auth_token: string | null
+          base_url: string
+          created_at: string
+          enabled: boolean | null
+          id: string
+          last_test_at: string | null
+          last_test_message: string | null
+          last_test_status: string | null
+          service_name: string
+          updated_at: string
+          user_token: string | null
+        }
+        Insert: {
+          app_token?: string | null
+          auth_token?: string | null
+          base_url: string
+          created_at?: string
+          enabled?: boolean | null
+          id?: string
+          last_test_at?: string | null
+          last_test_message?: string | null
+          last_test_status?: string | null
+          service_name: string
+          updated_at?: string
+          user_token?: string | null
+        }
+        Update: {
+          app_token?: string | null
+          auth_token?: string | null
+          base_url?: string
+          created_at?: string
+          enabled?: boolean | null
+          id?: string
+          last_test_at?: string | null
+          last_test_message?: string | null
+          last_test_status?: string | null
+          service_name?: string
+          updated_at?: string
+          user_token?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          role: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id: string
+          role?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          role?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      sync_logs: {
+        Row: {
+          created_at: string
+          details: string | null
+          id: string
+          message: string
+          metadata: Json | null
+          operation: string
+          processing_time: number | null
+          source_id: string | null
+          status: string
+          sync_type: string
+          target_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          details?: string | null
+          id?: string
+          message: string
+          metadata?: Json | null
+          operation: string
+          processing_time?: number | null
+          source_id?: string | null
+          status: string
+          sync_type: string
+          target_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          details?: string | null
+          id?: string
+          message?: string
+          metadata?: Json | null
+          operation?: string
+          processing_time?: number | null
+          source_id?: string | null
+          status?: string
+          sync_type?: string
+          target_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

@@ -29,17 +29,7 @@ export interface SyncLog {
 }
 
 class SupabaseApiService {
-  private isSupabaseAvailable(): boolean {
-    return !!(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
-  }
-
   async saveApiConfiguration(config: ApiConfiguration): Promise<void> {
-    if (!this.isSupabaseAvailable()) {
-      console.warn('Supabase não configurado - salvando configuração localmente');
-      localStorage.setItem(`api_config_${config.service_name}`, JSON.stringify(config));
-      return;
-    }
-
     const { error } = await supabase
       .from('api_configurations')
       .upsert({
@@ -56,12 +46,6 @@ class SupabaseApiService {
   }
 
   async getApiConfiguration(serviceName: 'perfex' | 'glpi'): Promise<ApiConfiguration | null> {
-    if (!this.isSupabaseAvailable()) {
-      console.warn('Supabase não configurado - buscando configuração local');
-      const stored = localStorage.getItem(`api_config_${serviceName}`);
-      return stored ? JSON.parse(stored) : null;
-    }
-
     const { data, error } = await supabase
       .from('api_configurations')
       .select('*')
@@ -77,16 +61,6 @@ class SupabaseApiService {
   }
 
   async getAllApiConfigurations(): Promise<ApiConfiguration[]> {
-    if (!this.isSupabaseAvailable()) {
-      console.warn('Supabase não configurado - buscando configurações locais');
-      const perfex = localStorage.getItem('api_config_perfex');
-      const glpi = localStorage.getItem('api_config_glpi');
-      const configs = [];
-      if (perfex) configs.push(JSON.parse(perfex));
-      if (glpi) configs.push(JSON.parse(glpi));
-      return configs;
-    }
-
     const { data, error } = await supabase
       .from('api_configurations')
       .select('*')
@@ -119,7 +93,6 @@ class SupabaseApiService {
         console.log(`Testando Perfex - URL: ${config.base_url}/customers`);
         console.log(`Testando Perfex - Token: ${config.auth_token?.substring(0, 20)}...`);
         
-        // Corrigido para usar o endpoint correto do Perfex API
         response = await fetch(`${config.base_url}/customers`, {
           method: 'GET',
           headers: {
@@ -152,17 +125,15 @@ class SupabaseApiService {
         message: response.ok ? 'Conexão estabelecida com sucesso' : `HTTP ${response.status}: ${response.statusText}`
       };
 
-      // Salvar resultado do teste na configuração apenas se Supabase estiver disponível
-      if (this.isSupabaseAvailable()) {
-        await supabase
-          .from('api_configurations')
-          .update({
-            last_test_at: new Date().toISOString(),
-            last_test_status: result.success ? 'success' : 'error',
-            last_test_message: result.message
-          })
-          .eq('service_name', serviceName);
-      }
+      // Salvar resultado do teste na configuração
+      await supabase
+        .from('api_configurations')
+        .update({
+          last_test_at: new Date().toISOString(),
+          last_test_status: result.success ? 'success' : 'error',
+          last_test_message: result.message
+        })
+        .eq('service_name', serviceName);
 
       return result;
 
@@ -179,30 +150,21 @@ class SupabaseApiService {
         message: error instanceof Error ? error.message : 'Erro desconhecido'
       };
 
-      // Salvar resultado do erro apenas se Supabase estiver disponível
-      if (this.isSupabaseAvailable()) {
-        await supabase
-          .from('api_configurations')
-          .update({
-            last_test_at: new Date().toISOString(),
-            last_test_status: 'error',
-            last_test_message: result.message
-          })
-          .eq('service_name', serviceName);
-      }
+      // Salvar resultado do erro
+      await supabase
+        .from('api_configurations')
+        .update({
+          last_test_at: new Date().toISOString(),
+          last_test_status: 'error',
+          last_test_message: result.message
+        })
+        .eq('service_name', serviceName);
 
       return result;
     }
   }
 
   async addSyncLog(log: SyncLog): Promise<void> {
-    if (!this.isSupabaseAvailable()) {
-      console.warn('Supabase não configurado - log apenas no console');
-      const timestamp = new Date().toLocaleString('pt-BR');
-      console.log(`[${timestamp}] ${log.sync_type.toUpperCase()}: ${log.message}`);
-      return;
-    }
-
     const { error } = await supabase
       .from('sync_logs')
       .insert({
@@ -220,11 +182,6 @@ class SupabaseApiService {
   }
 
   async getSyncLogs(limit: number = 100): Promise<SyncLog[]> {
-    if (!this.isSupabaseAvailable()) {
-      console.warn('Supabase não configurado - retornando logs vazios');
-      return [];
-    }
-
     const { data, error } = await supabase
       .from('sync_logs')
       .select('*')
@@ -240,11 +197,6 @@ class SupabaseApiService {
   }
 
   async clearSyncLogs(): Promise<void> {
-    if (!this.isSupabaseAvailable()) {
-      console.warn('Supabase não configurado - não há logs para limpar');
-      return;
-    }
-
     const { error } = await supabase
       .from('sync_logs')
       .delete()
@@ -274,7 +226,6 @@ class SupabaseApiService {
     try {
       console.log('Buscando clientes do Perfex...');
       
-      // Corrigido para usar o endpoint correto do Perfex API
       const perfexResponse = await fetch(`${perfexConfig.base_url}/customers`, {
         headers: {
           'authtoken': perfexConfig.auth_token || '',
@@ -360,30 +311,6 @@ class SupabaseApiService {
         details: error instanceof Error ? error.message : 'Erro desconhecido'
       });
       throw error;
-    }
-  }
-
-  async initializeDefaultConfigurations(): Promise<void> {
-    const perfexExists = await this.getApiConfiguration('perfex');
-    const glpiExists = await this.getApiConfiguration('glpi');
-
-    if (!perfexExists) {
-      await this.saveApiConfiguration({
-        service_name: 'perfex',
-        base_url: 'https://central.zuve.com.br/api',
-        auth_token: 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoibWFyY28iLCJuYW1lIjoibWFyY28iLCJBUElfVElNRSI6MTc1MDMzMjYzNH0.nsayzEA0J5oP0bN7HVabrvjGmjuVTo1xlhS8DsO9V_g',
-        enabled: true
-      });
-    }
-
-    if (!glpiExists) {
-      await this.saveApiConfiguration({
-        service_name: 'glpi',
-        base_url: 'https://gestaodeti.zuve.com.br/apirest.php',
-        app_token: 'mgEtK9pOwoYRqmMHbmMzjz0FcAMOJo9VwtMyDy6P',
-        user_token: '0GCLWm05oh1u86qWgFXZmYOWnvqBdTQmm4FkRHwD',
-        enabled: true
-      });
     }
   }
 }
