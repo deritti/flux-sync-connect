@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface ApiConfiguration {
@@ -32,14 +31,23 @@ export interface SyncLog {
 }
 
 class SupabaseApiService {
-  private getCurrentUserId(): string | null {
-    const { data: { user } } = supabase.auth.getUser();
-    return user?.id || null;
+  private async getCurrentUserId(): Promise<string | null> {
+    try {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error) {
+        console.error('Erro ao obter usuário:', error);
+        return null;
+      }
+      return user?.id || null;
+    } catch (error) {
+      console.error('Erro ao verificar autenticação:', error);
+      return null;
+    }
   }
 
   async initializeDefaultConfigurations(): Promise<void> {
     try {
-      const userId = this.getCurrentUserId();
+      const userId = await this.getCurrentUserId();
       if (!userId) {
         console.log('Usuário não autenticado - pulando inicialização');
         return;
@@ -80,7 +88,7 @@ class SupabaseApiService {
 
   async saveApiConfiguration(config: ApiConfiguration): Promise<void> {
     try {
-      const userId = this.getCurrentUserId();
+      const userId = await this.getCurrentUserId();
       if (!userId) {
         throw new Error('Usuário não autenticado');
       }
@@ -111,7 +119,7 @@ class SupabaseApiService {
 
   async getApiConfiguration(serviceName: 'perfex' | 'glpi'): Promise<ApiConfiguration | null> {
     try {
-      const userId = this.getCurrentUserId();
+      const userId = await this.getCurrentUserId();
       if (!userId) {
         throw new Error('Usuário não autenticado');
       }
@@ -137,7 +145,7 @@ class SupabaseApiService {
 
   async getAllApiConfigurations(): Promise<ApiConfiguration[]> {
     try {
-      const userId = this.getCurrentUserId();
+      const userId = await this.getCurrentUserId();
       if (!userId) {
         return [];
       }
@@ -231,15 +239,18 @@ class SupabaseApiService {
       };
 
       // Salvar resultado do teste na configuração
-      await supabase
-        .from('api_configurations')
-        .update({
-          last_test_at: new Date().toISOString(),
-          last_test_status: result.success ? 'success' : 'error',
-          last_test_message: result.message
-        })
-        .eq('service_name', serviceName)
-        .eq('user_id', this.getCurrentUserId());
+      const userId = await this.getCurrentUserId();
+      if (userId) {
+        await supabase
+          .from('api_configurations')
+          .update({
+            last_test_at: new Date().toISOString(),
+            last_test_status: result.success ? 'success' : 'error',
+            last_test_message: result.message
+          })
+          .eq('service_name', serviceName)
+          .eq('user_id', userId);
+      }
 
       return result;
 
@@ -257,7 +268,7 @@ class SupabaseApiService {
       };
 
       // Salvar resultado do erro
-      const userId = this.getCurrentUserId();
+      const userId = await this.getCurrentUserId();
       if (userId) {
         await supabase
           .from('api_configurations')
