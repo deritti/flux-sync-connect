@@ -22,6 +22,7 @@ export type Database = {
           last_test_status: string | null
           service_name: string
           updated_at: string
+          user_id: string
           user_token: string | null
         }
         Insert: {
@@ -36,6 +37,7 @@ export type Database = {
           last_test_status?: string | null
           service_name: string
           updated_at?: string
+          user_id: string
           user_token?: string | null
         }
         Update: {
@@ -50,7 +52,89 @@ export type Database = {
           last_test_status?: string | null
           service_name?: string
           updated_at?: string
+          user_id?: string
           user_token?: string | null
+        }
+        Relationships: []
+      }
+      api_configurations_backup: {
+        Row: {
+          app_token: string | null
+          auth_token: string | null
+          base_url: string | null
+          created_at: string | null
+          enabled: boolean | null
+          id: string | null
+          last_test_at: string | null
+          last_test_message: string | null
+          last_test_status: string | null
+          service_name: string | null
+          updated_at: string | null
+          user_token: string | null
+        }
+        Insert: {
+          app_token?: string | null
+          auth_token?: string | null
+          base_url?: string | null
+          created_at?: string | null
+          enabled?: boolean | null
+          id?: string | null
+          last_test_at?: string | null
+          last_test_message?: string | null
+          last_test_status?: string | null
+          service_name?: string | null
+          updated_at?: string | null
+          user_token?: string | null
+        }
+        Update: {
+          app_token?: string | null
+          auth_token?: string | null
+          base_url?: string | null
+          created_at?: string | null
+          enabled?: boolean | null
+          id?: string | null
+          last_test_at?: string | null
+          last_test_message?: string | null
+          last_test_status?: string | null
+          service_name?: string | null
+          updated_at?: string | null
+          user_token?: string | null
+        }
+        Relationships: []
+      }
+      attendance_logs: {
+        Row: {
+          action_executed: string
+          client_name: string
+          client_phone: string
+          created_at: string
+          details: Json | null
+          id: string
+          status: string
+          timestamp: string
+          user_id: string
+        }
+        Insert: {
+          action_executed: string
+          client_name: string
+          client_phone: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          status: string
+          timestamp?: string
+          user_id: string
+        }
+        Update: {
+          action_executed?: string
+          client_name?: string
+          client_phone?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          status?: string
+          timestamp?: string
+          user_id?: string
         }
         Relationships: []
       }

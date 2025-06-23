@@ -12,6 +12,9 @@ export interface ApiConfiguration {
   last_test_at?: string;
   last_test_status?: string;
   last_test_message?: string;
+  user_id?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface SyncLog {
@@ -29,26 +32,39 @@ export interface SyncLog {
 }
 
 class SupabaseApiService {
+  private getCurrentUserId(): string | null {
+    const { data: { user } } = supabase.auth.getUser();
+    return user?.id || null;
+  }
+
   async initializeDefaultConfigurations(): Promise<void> {
     try {
+      const userId = this.getCurrentUserId();
+      if (!userId) {
+        console.log('Usuário não autenticado - pulando inicialização');
+        return;
+      }
+
       const existingConfigs = await this.getAllApiConfigurations();
       
       if (existingConfigs.length === 0) {
-        console.log('Inicializando configurações padrão...');
+        console.log('Inicializando configurações padrão para o usuário...');
         
         const defaultConfigs: ApiConfiguration[] = [
           {
             service_name: 'perfex',
             base_url: '',
             auth_token: '',
-            enabled: false
+            enabled: false,
+            user_id: userId
           },
           {
             service_name: 'glpi',
             base_url: '',
             app_token: '',
             user_token: '',
-            enabled: false
+            enabled: false,
+            user_id: userId
           }
         ];
 
@@ -58,52 +74,90 @@ class SupabaseApiService {
       }
     } catch (error) {
       console.error('Erro ao inicializar configurações padrão:', error);
+      throw new Error(`Erro ao inicializar configurações: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     }
   }
 
   async saveApiConfiguration(config: ApiConfiguration): Promise<void> {
-    const { error } = await supabase
-      .from('api_configurations')
-      .upsert({
-        ...config,
-        updated_at: new Date().toISOString()
-      }, {
-        onConflict: 'service_name'
-      });
+    try {
+      const userId = this.getCurrentUserId();
+      if (!userId) {
+        throw new Error('Usuário não autenticado');
+      }
 
-    if (error) {
+      const configData = {
+        ...config,
+        user_id: userId,
+        updated_at: new Date().toISOString()
+      };
+
+      const { error } = await supabase
+        .from('api_configurations')
+        .upsert(configData, {
+          onConflict: 'user_id,service_name'
+        });
+
+      if (error) {
+        console.error('Erro ao salvar configuração:', error);
+        throw new Error(`Erro ao salvar configuração: ${error.message}`);
+      }
+
+      console.log(`Configuração ${config.service_name} salva com sucesso`);
+    } catch (error) {
       console.error('Erro ao salvar configuração:', error);
-      throw new Error(`Erro ao salvar configuração: ${error.message}`);
+      throw error;
     }
   }
 
   async getApiConfiguration(serviceName: 'perfex' | 'glpi'): Promise<ApiConfiguration | null> {
-    const { data, error } = await supabase
-      .from('api_configurations')
-      .select('*')
-      .eq('service_name', serviceName)
-      .single();
+    try {
+      const userId = this.getCurrentUserId();
+      if (!userId) {
+        throw new Error('Usuário não autenticado');
+      }
 
-    if (error && error.code !== 'PGRST116') {
+      const { data, error } = await supabase
+        .from('api_configurations')
+        .select('*')
+        .eq('service_name', serviceName)
+        .eq('user_id', userId)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Erro ao buscar configuração:', error);
+        throw new Error(`Erro ao buscar configuração: ${error.message}`);
+      }
+
+      return data as ApiConfiguration | null;
+    } catch (error) {
       console.error('Erro ao buscar configuração:', error);
-      throw new Error(`Erro ao buscar configuração: ${error.message}`);
+      return null;
     }
-
-    return data as ApiConfiguration | null;
   }
 
   async getAllApiConfigurations(): Promise<ApiConfiguration[]> {
-    const { data, error } = await supabase
-      .from('api_configurations')
-      .select('*')
-      .order('service_name');
+    try {
+      const userId = this.getCurrentUserId();
+      if (!userId) {
+        return [];
+      }
 
-    if (error) {
+      const { data, error } = await supabase
+        .from('api_configurations')
+        .select('*')
+        .eq('user_id', userId)
+        .order('service_name');
+
+      if (error) {
+        console.error('Erro ao buscar configurações:', error);
+        throw new Error(`Erro ao buscar configurações: ${error.message}`);
+      }
+
+      return (data as ApiConfiguration[]) || [];
+    } catch (error) {
       console.error('Erro ao buscar configurações:', error);
-      throw new Error(`Erro ao buscar configurações: ${error.message}`);
+      return [];
     }
-
-    return (data as ApiConfiguration[]) || [];
   }
 
   async testApiConnection(serviceName: 'perfex' | 'glpi'): Promise<{
@@ -117,32 +171,41 @@ class SupabaseApiService {
       throw new Error(`Configuração para ${serviceName} não encontrada`);
     }
 
+    if (!config.base_url) {
+      throw new Error(`URL base não configurada para ${serviceName}`);
+    }
+
     const startTime = Date.now();
     let response: Response;
     
     try {
       if (serviceName === 'perfex') {
+        if (!config.auth_token) {
+          throw new Error('Token de autenticação não configurado para Perfex');
+        }
+
         console.log(`Testando Perfex - URL: ${config.base_url}/api/customers`);
-        console.log(`Testando Perfex - Token: ${config.auth_token?.substring(0, 20)}...`);
         
         response = await fetch(`${config.base_url}/api/customers`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            'authtoken': config.auth_token || ''
+            'authtoken': config.auth_token
           }
         });
       } else {
+        if (!config.app_token || !config.user_token) {
+          throw new Error('App Token ou User Token não configurados para GLPI');
+        }
+
         console.log(`Testando GLPI - URL: ${config.base_url}/initSession`);
-        console.log(`Testando GLPI - App-Token: ${config.app_token?.substring(0, 20)}...`);
-        console.log(`Testando GLPI - User-Token: ${config.user_token?.substring(0, 20)}...`);
         
         response = await fetch(`${config.base_url}/initSession`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            'App-Token': config.app_token || '',
-            'Authorization': `user_token ${config.user_token || ''}`
+            'App-Token': config.app_token,
+            'Authorization': `user_token ${config.user_token}`
           }
         });
       }
@@ -155,7 +218,7 @@ class SupabaseApiService {
       let responseText = '';
       try {
         responseText = await response.text();
-        console.log(`${serviceName.toUpperCase()} Response:`, responseText);
+        console.log(`${serviceName.toUpperCase()} Response:`, responseText.substring(0, 200));
       } catch (e) {
         console.log('Erro ao ler resposta:', e);
       }
@@ -175,7 +238,8 @@ class SupabaseApiService {
           last_test_status: result.success ? 'success' : 'error',
           last_test_message: result.message
         })
-        .eq('service_name', serviceName);
+        .eq('service_name', serviceName)
+        .eq('user_id', this.getCurrentUserId());
 
       return result;
 
@@ -193,79 +257,102 @@ class SupabaseApiService {
       };
 
       // Salvar resultado do erro
-      await supabase
-        .from('api_configurations')
-        .update({
-          last_test_at: new Date().toISOString(),
-          last_test_status: 'error',
-          last_test_message: result.message
-        })
-        .eq('service_name', serviceName);
+      const userId = this.getCurrentUserId();
+      if (userId) {
+        await supabase
+          .from('api_configurations')
+          .update({
+            last_test_at: new Date().toISOString(),
+            last_test_status: 'error',
+            last_test_message: result.message
+          })
+          .eq('service_name', serviceName)
+          .eq('user_id', userId);
+      }
 
       return result;
     }
   }
 
   async addSyncLog(log: SyncLog): Promise<void> {
-    const { error } = await supabase
-      .from('sync_logs')
-      .insert({
-        ...log,
-        created_at: new Date().toISOString()
-      });
+    try {
+      const { error } = await supabase
+        .from('sync_logs')
+        .insert({
+          ...log,
+          created_at: new Date().toISOString()
+        });
 
-    if (error) {
+      if (error) {
+        console.error('Erro ao salvar log:', error);
+        throw new Error(`Erro ao salvar log: ${error.message}`);
+      }
+
+      // Log também no console para debug
+      const timestamp = new Date().toLocaleString('pt-BR');
+      console.log(`[${timestamp}] ${log.sync_type.toUpperCase()}: ${log.message}`);
+    } catch (error) {
       console.error('Erro ao salvar log:', error);
     }
-
-    // Log também no console para debug
-    const timestamp = new Date().toLocaleString('pt-BR');
-    console.log(`[${timestamp}] ${log.sync_type.toUpperCase()}: ${log.message}`);
   }
 
   async getSyncLogs(limit: number = 100): Promise<SyncLog[]> {
-    const { data, error } = await supabase
-      .from('sync_logs')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(limit);
+    try {
+      const { data, error } = await supabase
+        .from('sync_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(limit);
 
-    if (error) {
+      if (error) {
+        console.error('Erro ao buscar logs:', error);
+        return [];
+      }
+
+      return (data as SyncLog[]) || [];
+    } catch (error) {
       console.error('Erro ao buscar logs:', error);
       return [];
     }
-
-    return (data as SyncLog[]) || [];
   }
 
   async clearSyncLogs(): Promise<void> {
-    const { error } = await supabase
-      .from('sync_logs')
-      .delete()
-      .neq('id', '');
+    try {
+      const { error } = await supabase
+        .from('sync_logs')
+        .delete()
+        .neq('id', '');
 
-    if (error) {
+      if (error) {
+        console.error('Erro ao limpar logs:', error);
+        throw new Error(`Erro ao limpar logs: ${error.message}`);
+      }
+    } catch (error) {
       console.error('Erro ao limpar logs:', error);
-      throw new Error(`Erro ao limpar logs: ${error.message}`);
+      throw error;
     }
   }
 
   async syncCustomersFromPerfex(): Promise<void> {
-    const perfexConfig = await this.getApiConfiguration('perfex');
-    const glpiConfig = await this.getApiConfiguration('glpi');
-
-    if (!perfexConfig || !glpiConfig) {
-      throw new Error('Configurações do Perfex ou GLPI não encontradas');
-    }
-
-    await this.addSyncLog({
-      sync_type: 'customer',
-      operation: 'sync',
-      status: 'success',
-      message: 'Iniciando sincronização de clientes Perfex → GLPI'
-    });
-
     try {
+      const perfexConfig = await this.getApiConfiguration('perfex');
+      const glpiConfig = await this.getApiConfiguration('glpi');
+
+      if (!perfexConfig || !glpiConfig) {
+        throw new Error('Configurações do Perfex ou GLPI não encontradas');
+      }
+
+      if (!perfexConfig.enabled || !glpiConfig.enabled) {
+        throw new Error('Perfex ou GLPI não estão habilitados');
+      }
+
+      await this.addSyncLog({
+        sync_type: 'customer',
+        operation: 'sync',
+        status: 'success',
+        message: 'Iniciando sincronização de clientes Perfex → GLPI'
+      });
+
       console.log('Buscando clientes do Perfex...');
       
       const perfexResponse = await fetch(`${perfexConfig.base_url}/api/customers`, {

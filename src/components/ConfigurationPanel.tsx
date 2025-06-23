@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,8 +8,9 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Server, Database, Webhook, Shield, Eye, EyeOff, TestTube, CheckCircle, XCircle, Clock, Loader2 } from 'lucide-react';
+import { Server, Database, Shield, Eye, EyeOff, TestTube, CheckCircle, XCircle, Clock, Loader2, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import { supabaseApiService, ApiConfiguration } from '@/services/supabaseApiService';
 import WebhookConfig from './WebhookConfig';
 
@@ -17,7 +19,9 @@ const ConfigurationPanel = () => {
   const [isTestingConnection, setIsTestingConnection] = useState({ glpi: false, perfex: false });
   const [connectionStatus, setConnectionStatus] = useState<{ [key: string]: any }>({ glpi: null, perfex: null });
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const [glpiConfig, setGlpiConfig] = useState<ApiConfiguration>({
     service_name: 'glpi',
@@ -35,13 +39,20 @@ const ConfigurationPanel = () => {
   });
 
   useEffect(() => {
-    loadConfigurations();
-  }, []);
+    if (user) {
+      loadConfigurations();
+    }
+  }, [user]);
 
   const loadConfigurations = async () => {
     try {
       setLoading(true);
       
+      if (!user) {
+        console.log('Usuário não autenticado');
+        return;
+      }
+
       // Inicializar configurações padrão se não existirem
       await supabaseApiService.initializeDefaultConfigurations();
       
@@ -62,7 +73,7 @@ const ConfigurationPanel = () => {
       console.error('Erro ao carregar configurações:', error);
       toast({
         title: "Erro",
-        description: "Erro ao carregar configurações do banco de dados",
+        description: `Erro ao carregar configurações: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
         variant: "destructive"
       });
     } finally {
@@ -70,11 +81,51 @@ const ConfigurationPanel = () => {
     }
   };
 
+  const validateConfiguration = (config: ApiConfiguration): string[] => {
+    const errors: string[] = [];
+
+    if (!config.base_url.trim()) {
+      errors.push('URL base é obrigatória');
+    } else if (!config.base_url.startsWith('http')) {
+      errors.push('URL base deve começar com http:// ou https://');
+    }
+
+    if (config.service_name === 'perfex') {
+      if (!config.auth_token?.trim()) {
+        errors.push('Token de autenticação é obrigatório para Perfex');
+      }
+    } else if (config.service_name === 'glpi') {
+      if (!config.app_token?.trim()) {
+        errors.push('App Token é obrigatório para GLPI');
+      }
+      if (!config.user_token?.trim()) {
+        errors.push('User Token é obrigatório para GLPI');
+      }
+    }
+
+    return errors;
+  };
+
   const handleTestConnection = async (system: 'glpi' | 'perfex') => {
+    const config = system === 'glpi' ? glpiConfig : perfexConfig;
+    const validationErrors = validateConfiguration(config);
+
+    if (validationErrors.length > 0) {
+      toast({
+        title: "Configuração inválida",
+        description: validationErrors.join(', '),
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsTestingConnection(prev => ({ ...prev, [system]: true }));
     setConnectionStatus(prev => ({ ...prev, [system]: null }));
     
     try {
+      // Salvar configuração antes de testar
+      await supabaseApiService.saveApiConfiguration(config);
+      
       const result = await supabaseApiService.testApiConnection(system);
       
       setConnectionStatus(prev => ({ 
@@ -113,7 +164,30 @@ const ConfigurationPanel = () => {
   };
 
   const handleSaveConfig = async () => {
+    if (!user) {
+      toast({
+        title: "Erro",
+        description: "Usuário não autenticado",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const glpiErrors = validateConfiguration(glpiConfig);
+    const perfexErrors = validateConfiguration(perfexConfig);
+
+    if (glpiErrors.length > 0 || perfexErrors.length > 0) {
+      toast({
+        title: "Configurações inválidas",
+        description: [...glpiErrors, ...perfexErrors].join(', '),
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
+      setSaving(true);
+      
       await Promise.all([
         supabaseApiService.saveApiConfiguration(glpiConfig),
         supabaseApiService.saveApiConfiguration(perfexConfig)
@@ -127,9 +201,11 @@ const ConfigurationPanel = () => {
       console.error('Erro ao salvar configurações:', error);
       toast({
         title: "Erro",
-        description: "Erro ao salvar configurações no banco de dados",
+        description: `Erro ao salvar configurações: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
         variant: "destructive"
       });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -154,6 +230,17 @@ const ConfigurationPanel = () => {
       </Alert>
     );
   };
+
+  if (!user) {
+    return (
+      <Alert>
+        <AlertTriangle className="h-4 w-4" />
+        <AlertDescription>
+          Você precisa estar logado para acessar as configurações.
+        </AlertDescription>
+      </Alert>
+    );
+  }
 
   if (loading) {
     return (
@@ -342,9 +429,17 @@ const ConfigurationPanel = () => {
               </Tabs>
 
               <div className="flex justify-end pt-6 border-t">
-                <Button onClick={handleSaveConfig} className="flex items-center gap-2">
-                  <Shield size={16} />
-                  Salvar no Supabase
+                <Button 
+                  onClick={handleSaveConfig} 
+                  disabled={saving}
+                  className="flex items-center gap-2"
+                >
+                  {saving ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Shield size={16} />
+                  )}
+                  {saving ? 'Salvando...' : 'Salvar no Supabase'}
                 </Button>
               </div>
             </CardContent>
