@@ -58,7 +58,7 @@ const SyncManagement = () => {
       let syncPromise;
       switch (type) {
         case 'companies':
-          syncPromise = supabaseApiService.syncCustomersFromPerfex();
+          syncPromise = supabaseApiService.syncCustomersFromZcolab();
           break;
         case 'users':
           syncPromise = Promise.resolve(); // TODO: implementar sincronização de contatos
@@ -116,11 +116,11 @@ const SyncManagement = () => {
     {
       id: 'companies',
       title: 'Empresas/Entidades',
-      description: 'Sincronização de clientes do Perfex CRM com entidades do GLPI',
+      description: 'Sincronização de clientes do Zcolab com entidades do GLPI',
       icon: Building2,
       color: 'text-blue-600',
       bgColor: 'bg-blue-100',
-      direction: 'Perfex CRM → GLPI',
+      direction: 'Zcolab → GLPI',
       fields: ['Nome', 'CNPJ', 'E-mail', 'Telefone', 'Endereço', 'Observações']
     },
     {
@@ -136,11 +136,11 @@ const SyncManagement = () => {
     {
       id: 'tickets',
       title: 'Tickets/Chamados',
-      description: 'Sincronização de tickets/tarefas do Perfex CRM com tickets do GLPI',
+      description: 'Sincronização de tickets/tarefas do Zcolab com tickets do GLPI',
       icon: Ticket,
       color: 'text-purple-600',
       bgColor: 'bg-purple-100',
-      direction: 'Perfex CRM → GLPI',
+      direction: 'Zcolab → GLPI',
       fields: ['Título', 'Descrição', 'Status', 'Prioridade', 'Categoria', 'Responsável']
     }
   ];
