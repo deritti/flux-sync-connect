@@ -16,8 +16,8 @@ import WebhookConfig from './WebhookConfig';
 
 const ConfigurationPanel = () => {
   const [showPasswords, setShowPasswords] = useState(false);
-  const [isTestingConnection, setIsTestingConnection] = useState({ glpi: false, perfex: false });
-  const [connectionStatus, setConnectionStatus] = useState<{ [key: string]: any }>({ glpi: null, perfex: null });
+  const [isTestingConnection, setIsTestingConnection] = useState({ glpi: false, zcolab: false });
+  const [connectionStatus, setConnectionStatus] = useState<{ [key: string]: any }>({ glpi: null, zcolab: null });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
@@ -31,8 +31,8 @@ const ConfigurationPanel = () => {
     enabled: true
   });
 
-  const [perfexConfig, setPerfexConfig] = useState<ApiConfiguration>({
-    service_name: 'perfex',
+  const [zcolabConfig, setZcolabConfig] = useState<ApiConfiguration>({
+    service_name: 'zcolab',
     base_url: '',
     auth_token: '',
     enabled: true
@@ -56,13 +56,13 @@ const ConfigurationPanel = () => {
       // Inicializar configurações padrão se não existirem
       await supabaseApiService.initializeDefaultConfigurations();
       
-      const [perfexData, glpiData] = await Promise.all([
-        supabaseApiService.getApiConfiguration('perfex'),
+      const [zcolabData, glpiData] = await Promise.all([
+        supabaseApiService.getApiConfiguration('zcolab'),
         supabaseApiService.getApiConfiguration('glpi')
       ]);
 
-      if (perfexData) {
-        setPerfexConfig(perfexData);
+      if (zcolabData) {
+        setZcolabConfig(zcolabData);
       }
 
       if (glpiData) {
@@ -90,9 +90,9 @@ const ConfigurationPanel = () => {
       errors.push('URL base deve começar com http:// ou https://');
     }
 
-    if (config.service_name === 'perfex') {
+    if (config.service_name === 'zcolab') {
       if (!config.auth_token?.trim()) {
-        errors.push('Token de autenticação é obrigatório para Perfex');
+        errors.push('Token de autenticação é obrigatório para Zcolab');
       }
     } else if (config.service_name === 'glpi') {
       if (!config.app_token?.trim()) {
@@ -106,8 +106,8 @@ const ConfigurationPanel = () => {
     return errors;
   };
 
-  const handleTestConnection = async (system: 'glpi' | 'perfex') => {
-    const config = system === 'glpi' ? glpiConfig : perfexConfig;
+  const handleTestConnection = async (system: 'glpi' | 'zcolab') => {
+    const config = system === 'glpi' ? glpiConfig : zcolabConfig;
     const validationErrors = validateConfiguration(config);
 
     if (validationErrors.length > 0) {
@@ -174,12 +174,12 @@ const ConfigurationPanel = () => {
     }
 
     const glpiErrors = validateConfiguration(glpiConfig);
-    const perfexErrors = validateConfiguration(perfexConfig);
+    const zcolabErrors = validateConfiguration(zcolabConfig);
 
-    if (glpiErrors.length > 0 || perfexErrors.length > 0) {
+    if (glpiErrors.length > 0 || zcolabErrors.length > 0) {
       toast({
         title: "Configurações inválidas",
-        description: [...glpiErrors, ...perfexErrors].join(', '),
+        description: [...glpiErrors, ...zcolabErrors].join(', '),
         variant: "destructive"
       });
       return;
@@ -190,7 +190,7 @@ const ConfigurationPanel = () => {
       
       await Promise.all([
         supabaseApiService.saveApiConfiguration(glpiConfig),
-        supabaseApiService.saveApiConfiguration(perfexConfig)
+        supabaseApiService.saveApiConfiguration(zcolabConfig)
       ]);
       
       toast({
@@ -267,14 +267,14 @@ const ConfigurationPanel = () => {
                 Configuração de APIs - Supabase
               </CardTitle>
               <CardDescription>
-                Configure as credenciais de acesso aos sistemas GLPI e Perfex CRM (armazenadas com segurança)
+                Configure as credenciais de acesso aos sistemas GLPI e Zcolab (armazenadas com segurança)
               </CardDescription>
             </CardHeader>
             <CardContent>
               <Tabs defaultValue="glpi" className="space-y-6">
                 <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="glpi">GLPI</TabsTrigger>
-                  <TabsTrigger value="perfex">Perfex CRM</TabsTrigger>
+                  <TabsTrigger value="zcolab">Zcolab</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="glpi" className="space-y-4">
@@ -358,45 +358,45 @@ const ConfigurationPanel = () => {
                   {renderConnectionStatus('glpi')}
                 </TabsContent>
 
-                <TabsContent value="perfex" className="space-y-4">
+                <TabsContent value="zcolab" className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <h3 className="text-lg font-semibold">Configuração Perfex CRM</h3>
-                      <Badge variant={perfexConfig.enabled ? "default" : "secondary"}>
-                        {perfexConfig.enabled ? "Ativo" : "Inativo"}
+                      <h3 className="text-lg font-semibold">Configuração Zcolab</h3>
+                      <Badge variant={zcolabConfig.enabled ? "default" : "secondary"}>
+                        {zcolabConfig.enabled ? "Ativo" : "Inativo"}
                       </Badge>
                     </div>
                     <Switch
-                      checked={perfexConfig.enabled}
+                      checked={zcolabConfig.enabled}
                       onCheckedChange={(checked) => 
-                        setPerfexConfig(prev => ({ ...prev, enabled: checked }))
+                        setZcolabConfig(prev => ({ ...prev, enabled: checked }))
                       }
                     />
                   </div>
                   
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="perfex-url">URL Base da API</Label>
+                      <Label htmlFor="zcolab-url">URL Base da API</Label>
                       <Input
-                        id="perfex-url"
-                        placeholder="https://seu-perfex.com"
-                        value={perfexConfig.base_url}
-                        onChange={(e) => setPerfexConfig(prev => ({ ...prev, base_url: e.target.value }))}
+                        id="zcolab-url"
+                        placeholder="https://seu-zcolab.com"
+                        value={zcolabConfig.base_url}
+                        onChange={(e) => setZcolabConfig(prev => ({ ...prev, base_url: e.target.value }))}
                       />
                       <p className="text-xs text-gray-500">
-                        URL base do Perfex (sem /api no final)
+                        URL base do Zcolab (sem /api no final)
                       </p>
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="perfex-token">Auth Token</Label>
+                      <Label htmlFor="zcolab-token">Auth Token</Label>
                       <div className="relative">
                         <Input
-                          id="perfex-token"
+                          id="zcolab-token"
                           type={showPasswords ? "text" : "password"}
-                          placeholder="Auth Token do Perfex..."
-                          value={perfexConfig.auth_token || ''}
-                          onChange={(e) => setPerfexConfig(prev => ({ ...prev, auth_token: e.target.value }))}
+                          placeholder="Auth Token do Zcolab..."
+                          value={zcolabConfig.auth_token || ''}
+                          onChange={(e) => setZcolabConfig(prev => ({ ...prev, auth_token: e.target.value }))}
                         />
                         <Button
                           type="button"
@@ -412,19 +412,19 @@ const ConfigurationPanel = () => {
                   </div>
                   
                   <Button
-                    onClick={() => handleTestConnection('perfex')}
-                    disabled={isTestingConnection.perfex}
+                    onClick={() => handleTestConnection('zcolab')}
+                    disabled={isTestingConnection.zcolab}
                     className="flex items-center gap-2"
                   >
-                    {isTestingConnection.perfex ? (
+                    {isTestingConnection.zcolab ? (
                       <Clock size={16} className="animate-spin" />
                     ) : (
                       <TestTube size={16} />
                     )}
-                    {isTestingConnection.perfex ? 'Testando...' : 'Testar Conexão'}
+                    {isTestingConnection.zcolab ? 'Testando...' : 'Testar Conexão'}
                   </Button>
                   
-                  {renderConnectionStatus('perfex')}
+                  {renderConnectionStatus('zcolab')}
                 </TabsContent>
               </Tabs>
 

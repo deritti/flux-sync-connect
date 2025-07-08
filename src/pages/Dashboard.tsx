@@ -22,7 +22,7 @@ const Dashboard = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">GLPI-Perfex Integration</h1>
+              <h1 className="text-2xl font-bold text-gray-900">GLPI-Zcolab Integration</h1>
               <p className="text-gray-600">Sistema de Sincronização</p>
             </div>
             <div className="flex items-center space-x-4">
@@ -47,7 +47,7 @@ const Dashboard = () => {
             <CardTitle>Bem-vindo ao Sistema de Integração</CardTitle>
             <CardDescription>
               Configure suas APIs, monitore sincronizações e visualize logs em tempo real.
-              Para começar, configure suas credenciais de API do Perfex e GLPI.
+              Para começar, configure suas credenciais de API do Zcolab e GLPI.
             </CardDescription>
           </CardHeader>
         </Card>

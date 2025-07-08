@@ -16,7 +16,7 @@ const WebhookConfig = () => {
 
   // URLs dos webhooks baseadas no projeto Supabase
   const webhookUrls = {
-    perfex: `${window.location.origin}/api/webhook/perfex`,
+    zcolab: `${window.location.origin}/api/webhook/zcolab`,
     glpi: `${window.location.origin}/api/webhook/glpi`
   };
 
@@ -53,17 +53,17 @@ const WebhookConfig = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Webhook do Perfex */}
+          {/* Webhook do Zcolab */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Perfex CRM Webhook</h3>
+              <h3 className="text-lg font-semibold">Zcolab Webhook</h3>
               <Badge variant="outline">Entrada</Badge>
             </div>
             
             <Alert>
               <Settings className="h-4 w-4" />
               <AlertDescription>
-                <strong>Como configurar no Perfex CRM:</strong>
+                <strong>Como configurar no Zcolab:</strong>
                 <ol className="mt-2 ml-4 list-decimal space-y-1">
                   <li>Acesse Admin → Settings → Webhooks</li>
                   <li>Clique em "New Webhook"</li>
@@ -78,23 +78,23 @@ const WebhookConfig = () => {
               <Label>URL do Webhook</Label>
               <div className="flex gap-2">
                 <Input 
-                  value={webhookUrls.perfex} 
+                  value={webhookUrls.zcolab} 
                   readOnly 
                   className="font-mono text-sm"
                 />
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => copyToClipboard(webhookUrls.perfex, 'perfex')}
+                  onClick={() => copyToClipboard(webhookUrls.zcolab, 'zcolab')}
                 >
-                  {copied === 'perfex' ? <CheckCircle size={16} /> : <Copy size={16} />}
+                  {copied === 'zcolab' ? <CheckCircle size={16} /> : <Copy size={16} />}
                 </Button>
               </div>
             </div>
 
             <div className="flex items-center space-x-2">
-              <Switch id="perfex-webhook-enabled" defaultChecked />
-              <Label htmlFor="perfex-webhook-enabled">Webhook ativo</Label>
+              <Switch id="zcolab-webhook-enabled" defaultChecked />
+              <Label htmlFor="zcolab-webhook-enabled">Webhook ativo</Label>
             </div>
           </div>
 
@@ -149,10 +149,10 @@ const WebhookConfig = () => {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Token de Segurança Perfex</Label>
+                <Label>Token de Segurança Zcolab</Label>
                 <Input 
                   type="password"
-                  placeholder="Token para validar webhooks do Perfex"
+                  placeholder="Token para validar webhooks do Zcolab"
                   className="font-mono"
                 />
               </div>
@@ -188,7 +188,7 @@ const WebhookConfig = () => {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <h4 className="font-semibold">Perfex CRM</h4>
+              <h4 className="font-semibold">Zcolab</h4>
               <div className="text-sm text-gray-600">
                 <p>Último webhook: Nunca</p>
                 <p>Total recebidos: 0</p>

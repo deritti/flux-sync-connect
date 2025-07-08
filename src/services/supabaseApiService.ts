@@ -2,7 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 export interface ApiConfiguration {
   id?: string;
-  service_name: 'perfex' | 'glpi';
+  service_name: 'zcolab' | 'glpi';
   base_url: string;
   auth_token?: string;
   app_token?: string;
@@ -60,7 +60,7 @@ class SupabaseApiService {
         
         const defaultConfigs: ApiConfiguration[] = [
           {
-            service_name: 'perfex',
+            service_name: 'zcolab',
             base_url: '',
             auth_token: '',
             enabled: false,
@@ -117,7 +117,7 @@ class SupabaseApiService {
     }
   }
 
-  async getApiConfiguration(serviceName: 'perfex' | 'glpi'): Promise<ApiConfiguration | null> {
+  async getApiConfiguration(serviceName: 'zcolab' | 'glpi'): Promise<ApiConfiguration | null> {
     try {
       const userId = await this.getCurrentUserId();
       if (!userId) {
@@ -168,7 +168,7 @@ class SupabaseApiService {
     }
   }
 
-  async testApiConnection(serviceName: 'perfex' | 'glpi'): Promise<{
+  async testApiConnection(serviceName: 'zcolab' | 'glpi'): Promise<{
     success: boolean;
     status: number | string;
     responseTime: number;
@@ -187,12 +187,12 @@ class SupabaseApiService {
     let response: Response;
     
     try {
-      if (serviceName === 'perfex') {
+      if (serviceName === 'zcolab') {
         if (!config.auth_token) {
-          throw new Error('Token de autenticação não configurado para Perfex');
+          throw new Error('Token de autenticação não configurado para Zcolab');
         }
 
-        console.log(`Testando Perfex - URL: ${config.base_url}/api/customers`);
+        console.log(`Testando Zcolab - URL: ${config.base_url}/api/customers`);
         
         response = await fetch(`${config.base_url}/api/customers`, {
           method: 'GET',
@@ -344,40 +344,40 @@ class SupabaseApiService {
     }
   }
 
-  async syncCustomersFromPerfex(): Promise<void> {
+  async syncCustomersFromZcolab(): Promise<void> {
     try {
-      const perfexConfig = await this.getApiConfiguration('perfex');
+      const zcolabConfig = await this.getApiConfiguration('zcolab');
       const glpiConfig = await this.getApiConfiguration('glpi');
 
-      if (!perfexConfig || !glpiConfig) {
-        throw new Error('Configurações do Perfex ou GLPI não encontradas');
+      if (!zcolabConfig || !glpiConfig) {
+        throw new Error('Configurações do Zcolab ou GLPI não encontradas');
       }
 
-      if (!perfexConfig.enabled || !glpiConfig.enabled) {
-        throw new Error('Perfex ou GLPI não estão habilitados');
+      if (!zcolabConfig.enabled || !glpiConfig.enabled) {
+        throw new Error('Zcolab ou GLPI não estão habilitados');
       }
 
       await this.addSyncLog({
         sync_type: 'customer',
         operation: 'sync',
         status: 'success',
-        message: 'Iniciando sincronização de clientes Perfex → GLPI'
+        message: 'Iniciando sincronização de clientes Zcolab → GLPI'
       });
 
-      console.log('Buscando clientes do Perfex...');
+      console.log('Buscando clientes do Zcolab...');
       
-      const perfexResponse = await fetch(`${perfexConfig.base_url}/api/customers`, {
+      const zcolabResponse = await fetch(`${zcolabConfig.base_url}/api/customers`, {
         headers: {
-          'authtoken': perfexConfig.auth_token || '',
+          'authtoken': zcolabConfig.auth_token || '',
           'Content-Type': 'application/json'
         }
       });
 
-      if (!perfexResponse.ok) {
-        throw new Error(`Erro ao buscar clientes do Perfex: ${perfexResponse.status}`);
+      if (!zcolabResponse.ok) {
+        throw new Error(`Erro ao buscar clientes do Zcolab: ${zcolabResponse.status}`);
       }
 
-      const customers = await perfexResponse.json();
+      const customers = await zcolabResponse.json();
       
       console.log('Clientes encontrados:', customers.length);
 
@@ -431,7 +431,7 @@ class SupabaseApiService {
               operation: 'create',
               status: 'success',
               message: `Cliente "${customer.company || customer.name}" sincronizado com sucesso`,
-              details: `ID Perfex: ${customer.userid} | ID GLPI: ${result.id}`,
+              details: `ID Zcolab: ${customer.userid} | ID GLPI: ${result.id}`,
               source_id: customer.userid?.toString(),
               target_id: result.id?.toString()
             });
