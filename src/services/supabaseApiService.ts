@@ -192,9 +192,9 @@ class SupabaseApiService {
           throw new Error('Token de autenticação não configurado para Zcolab');
         }
 
-        console.log(`Testando Zcolab - URL: ${config.base_url}/api/customers`);
+        console.log(`Testando Zcolab - URL: ${config.base_url}/clients`);
         
-        response = await fetch(`${config.base_url}/api/customers`, {
+        response = await fetch(`${config.base_url}/clients`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -366,7 +366,7 @@ class SupabaseApiService {
 
       console.log('Buscando clientes do Zcolab...');
       
-      const zcolabResponse = await fetch(`${zcolabConfig.base_url}/api/customers`, {
+      const zcolabResponse = await fetch(`${zcolabConfig.base_url}/clients`, {
         headers: {
           'authtoken': zcolabConfig.auth_token || '',
           'Content-Type': 'application/json'
