@@ -5,13 +5,14 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Building2, Users, Ticket, Play, Pause, RotateCcw, Calendar, ArrowLeftRight } from 'lucide-react';
+import { Building2, Users, Ticket, Monitor, Play, Pause, RotateCcw, Calendar, ArrowLeftRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabaseApiService } from '@/services/supabaseApiService';
 
 const SyncManagement = () => {
   const [syncStatus, setSyncStatus] = useState({
     companies: { enabled: true, running: false, lastSync: '2 horas atrás', progress: 0 },
+    assets: { enabled: true, running: false, lastSync: '3 horas atrás', progress: 0 },
     users: { enabled: true, running: false, lastSync: '1 hora atrás', progress: 0 },
     tickets: { enabled: true, running: false, lastSync: '30 min atrás', progress: 0 }
   });
@@ -59,6 +60,9 @@ const SyncManagement = () => {
       switch (type) {
         case 'companies':
           syncPromise = supabaseApiService.syncCustomersFromZcolab();
+          break;
+        case 'assets':
+          syncPromise = supabaseApiService.syncAssetsFromGLPI();
           break;
         case 'users':
           syncPromise = Promise.resolve(); // TODO: implementar sincronização de contatos
@@ -122,6 +126,16 @@ const SyncManagement = () => {
       bgColor: 'bg-blue-100',
       direction: 'Zcolab → GLPI',
       fields: ['Nome', 'CNPJ', 'E-mail', 'Telefone', 'Endereço', 'Observações']
+    },
+    {
+      id: 'assets',
+      title: 'Ativos/Equipamentos',
+      description: 'Sincronização de ativos do GLPI para o Zcolab (aparecerão nos tickets)',
+      icon: Monitor,
+      color: 'text-orange-600',
+      bgColor: 'bg-orange-100',
+      direction: 'GLPI → Zcolab',
+      fields: ['Nome', 'Serial', 'Modelo', 'Fabricante', 'Status', 'Localização', 'Usuário']
     },
     {
       id: 'users',

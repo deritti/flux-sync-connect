@@ -19,7 +19,7 @@ export interface ApiConfiguration {
 export interface SyncLog {
   id?: string;
   created_at?: string;
-  sync_type: 'customer' | 'contact' | 'ticket';
+  sync_type: 'customer' | 'contact' | 'ticket' | 'asset';
   operation: 'create' | 'update' | 'sync';
   status: 'success' | 'error' | 'warning';
   message: string;
@@ -475,6 +475,153 @@ class SupabaseApiService {
         operation: 'sync',
         status: 'error',
         message: 'Falha na sincronização de clientes',
+        details: error instanceof Error ? error.message : 'Erro desconhecido'
+      });
+      throw error;
+    }
+  }
+
+  async syncAssetsFromGLPI(): Promise<void> {
+    try {
+      const zcolabConfig = await this.getApiConfiguration('zcolab');
+      const glpiConfig = await this.getApiConfiguration('glpi');
+
+      if (!zcolabConfig || !glpiConfig) {
+        throw new Error('Configurações do Zcolab ou GLPI não encontradas');
+      }
+
+      if (!zcolabConfig.enabled || !glpiConfig.enabled) {
+        throw new Error('Zcolab ou GLPI não estão habilitados');
+      }
+
+      await this.addSyncLog({
+        sync_type: 'asset',
+        operation: 'sync',
+        status: 'success',
+        message: 'Iniciando sincronização de ativos GLPI → Zcolab'
+      });
+
+      console.log('Iniciando sessão no GLPI...');
+      
+      // Inicializar sessão no GLPI
+      const glpiSessionResponse = await fetch(`${glpiConfig.base_url}/initSession`, {
+        method: 'GET',
+        headers: {
+          'App-Token': glpiConfig.app_token || '',
+          'Authorization': `user_token ${glpiConfig.user_token || ''}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!glpiSessionResponse.ok) {
+        throw new Error(`Erro ao inicializar sessão GLPI: ${glpiSessionResponse.status}`);
+      }
+
+      const sessionData = await glpiSessionResponse.json();
+      const sessionToken = sessionData.session_token;
+
+      // Buscar ativos (computadores) do GLPI
+      console.log('Buscando ativos do GLPI...');
+      const assetsResponse = await fetch(`${glpiConfig.base_url}/Computer?range=0-50`, {
+        method: 'GET',
+        headers: {
+          'App-Token': glpiConfig.app_token || '',
+          'Session-Token': sessionToken,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!assetsResponse.ok) {
+        throw new Error(`Erro ao buscar ativos do GLPI: ${assetsResponse.status}`);
+      }
+
+      const assets = await assetsResponse.json();
+      console.log('Ativos encontrados:', assets.length);
+
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const asset of assets) {
+        try {
+          // Preparar dados do ativo para o Zcolab
+          const assetData = {
+            name: asset.name || `Ativo-${asset.id}`,
+            serial: asset.serial || '',
+            model: asset.computermodels_id || '',
+            manufacturer: asset.manufacturers_id || '',
+            status: asset.states_id || 1,
+            location: asset.locations_id || '',
+            user: asset.users_id || '',
+            entity: asset.entities_id || '',
+            comment: asset.comment || '',
+            glpi_id: asset.id
+          };
+
+          console.log('Sincronizando ativo para Zcolab:', assetData);
+
+          // Criar/atualizar ativo no Zcolab
+          const zcolabResponse = await fetch(`${zcolabConfig.base_url}/assets`, {
+            method: 'POST',
+            headers: {
+              'authtoken': zcolabConfig.auth_token || '',
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(assetData)
+          });
+
+          if (zcolabResponse.ok) {
+            const result = await zcolabResponse.json();
+            successCount++;
+            
+            await this.addSyncLog({
+              sync_type: 'asset',
+              operation: 'create',
+              status: 'success',
+              message: `Ativo "${asset.name}" sincronizado com sucesso`,
+              details: `ID GLPI: ${asset.id} | ID Zcolab: ${result.id || 'N/A'}`,
+              source_id: asset.id?.toString(),
+              target_id: result.id?.toString()
+            });
+          } else {
+            throw new Error(`HTTP ${zcolabResponse.status}: ${await zcolabResponse.text()}`);
+          }
+          
+        } catch (error) {
+          errorCount++;
+          await this.addSyncLog({
+            sync_type: 'asset',
+            operation: 'create',
+            status: 'error',
+            message: `Erro ao sincronizar ativo "${asset.name}"`,
+            details: error instanceof Error ? error.message : 'Erro desconhecido',
+            source_id: asset.id?.toString()
+          });
+        }
+      }
+
+      // Finalizar sessão GLPI
+      await fetch(`${glpiConfig.base_url}/killSession`, {
+        method: 'GET',
+        headers: {
+          'App-Token': glpiConfig.app_token || '',
+          'Session-Token': sessionToken,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      await this.addSyncLog({
+        sync_type: 'asset',
+        operation: 'sync',
+        status: 'success',
+        message: `Sincronização de ativos concluída: ${successCount} sucessos, ${errorCount} erros`
+      });
+
+    } catch (error) {
+      await this.addSyncLog({
+        sync_type: 'asset',
+        operation: 'sync',
+        status: 'error',
+        message: 'Falha na sincronização de ativos',
         details: error instanceof Error ? error.message : 'Erro desconhecido'
       });
       throw error;
